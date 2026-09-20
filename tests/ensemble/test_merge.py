@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from tools.ensemble import decide, merge_all, merge_bench, merge_judge
+from tools.ensemble import decide, effective_budget, merge_all, merge_bench, merge_judge
 
 M = "MALICIOUS"
 B = "BENIGN"
@@ -233,3 +233,23 @@ def test_merge_all_none_alive() -> None:
         "Both engines failed or timed out; no verdict could be produced."
     ]
     assert rows[0]["evidence"] == []
+
+
+@pytest.mark.parametrize(
+    "mode,budget_flag,env_budget,expected",
+    [
+        ("judge", None, None, 540.0),
+        ("bench", None, None, None),
+        ("bench", 30.0, None, 30.0),
+        ("judge", None, "12", 12.0),
+        ("bench", None, "", None),
+        ("bench", None, "7.5", 7.5),
+    ],
+)
+def test_effective_budget_table(
+    mode: str,
+    budget_flag: float | None,
+    env_budget: str | None,
+    expected: float | None,
+) -> None:
+    assert effective_budget(mode, budget_flag, env_budget) == expected

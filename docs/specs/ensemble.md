@@ -49,7 +49,7 @@ An engine is **alive** iff it finished within the budget, parsed as the expected
 | Variable | Default | Role |
 |---|---|---|
 | `ENSEMBLE_ENGINES` | `detector,noexit` | Comma list; unknown names are ignored; empty after filtering → both. Overridden by `--engines`. |
-| `ENSEMBLE_BUDGET_S` | `540.0` | Wall-clock timeout for each engine subprocess. Overridden by `--budget`. |
+| `ENSEMBLE_BUDGET_S` | `540` in judge mode, **none** in bench mode | Per-engine subprocess timeout in judge mode. In bench mode the wall clock is BAYBENCH's `bench run --timeout`, not the ensemble. `--budget` or the env var override both. |
 | `ENSEMBLE_DETECTOR_BUDGET_S` | `420.0` | Passed to detector as `--budget` (`420 +` one 120 s file `= 540`). |
 | `ENSEMBLE_PYTHON` | `sys.executable` | Interpreter used to launch detector. |
 | `ENSEMBLE_NODE` | `node` | Node binary used to launch noexit. |

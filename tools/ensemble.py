@@ -43,6 +43,22 @@ def norm_verdict(value: object) -> str:
     return "UNCERTAIN"
 
 
+def effective_budget(
+    mode: str, budget_flag: float | None, env_budget: str | None
+) -> float | None:
+    if budget_flag is not None:
+        return budget_flag
+    if env_budget:
+        return float(env_budget)
+    match mode:
+        case "judge":
+            return 540.0
+        case "bench":
+            return None
+        case _ as unreachable:
+            raise AssertionError(f"unreachable mode: {unreachable!r}")
+
+
 def decide(d: str | None, n: str | None) -> str:
     d_n = None if d is None else norm_verdict(d)
     n_n = None if n is None else norm_verdict(n)
@@ -383,7 +399,7 @@ def _run_one_engine(
     cmd: list[str],
     *,
     mode: str,
-    budget_s: float,
+    budget_s: float | None,
     env: dict[str, str],
     tmp: Path | None,
     n_judge_files: int,
@@ -531,7 +547,7 @@ def run_engines(
     input_dir: Path,
     *,
     engines: list[str],
-    budget_s: float,
+    budget_s: float | None,
     detector_budget_s: float,
     python: str,
     node: str,
@@ -695,12 +711,6 @@ def main(argv: list[str] | None = None) -> int:
     input_dir = args.input_dir
     engines_raw = args.engines if args.engines is not None else (env_engines or "")
     engines = parse_engines(engines_raw) if engines_raw.strip() else ["detector", "noexit"]
-    if args.budget is not None:
-        budget_s = float(args.budget)
-    elif env_budget not in (None, ""):
-        budget_s = float(env_budget)
-    else:
-        budget_s = 540.0
     if env_detector_budget not in (None, ""):
         detector_budget_s = float(env_detector_budget)
     else:
@@ -725,13 +735,15 @@ def main(argv: list[str] | None = None) -> int:
                 mode = _auto_mode()
         bench_out = Path("/output/results.json") if mode == "bench" else None
 
+    budget_s = effective_budget(mode, args.budget, env_budget)
     judge_files = list_judge_files(input_dir) if mode == "judge" else []
     files_label: str = str(len(judge_files)) if mode == "judge" else "n/a"
     t0 = time.monotonic()
+    budget_label = "none" if budget_s is None else f"{budget_s}s"
     logger.info(
-        "engines=%s budget=%ss detector_budget=%ss mode=%s files=%s",
+        "engines=%s budget=%s detector_budget=%ss mode=%s files=%s",
         engines,
-        budget_s,
+        budget_label,
         detector_budget_s,
         mode,
         files_label,

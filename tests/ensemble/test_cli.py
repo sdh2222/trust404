@@ -63,6 +63,12 @@ def _assert_tier0_verdicts(rows: list[dict]) -> None:
     assert by_file == EXPECTED_VERDICTS
 
 
+def test_judge_mode_budget_default_540(flat_tier0: Path, noexit_dist: Path) -> None:
+    proc = _run_ensemble(flat_tier0)
+    assert proc.returncode == 0, proc.stderr
+    assert "budget=540.0s" in proc.stderr
+
+
 def test_judge_mode_public_set(flat_tier0: Path, noexit_dist: Path) -> None:
     proc = _run_ensemble(flat_tier0)
     assert proc.returncode == 0, proc.stderr
@@ -84,6 +90,16 @@ def test_judge_mode_deterministic(flat_tier0: Path, noexit_dist: Path) -> None:
     assert first.returncode == 0, first.stderr
     assert second.returncode == 0, second.stderr
     assert first.stdout == second.stdout
+
+
+def test_bench_mode_has_no_engine_timeout_by_default(
+    flat_tier0: Path, tmp_path: Path, noexit_dist: Path
+) -> None:
+    bench_path = tmp_path / "out" / "results.json"
+    bench_path.parent.mkdir()
+    proc = _run_ensemble(flat_tier0, extra=["--bench-out", str(bench_path)])
+    assert proc.returncode == 0, proc.stderr
+    assert "budget=none" in proc.stderr
 
 
 def test_bench_mode_deterministic(
