@@ -1,7 +1,8 @@
 id: tier1/STRUCT_EXTERNAL_GATE/mal
 file: ExternalGate.sol
-preferred_verdict: Uncertain
+preferred_verdict: Malicious
 accepted_verdicts:
+  - Malicious
   - Uncertain
 expected_families:
   - E
@@ -11,3 +12,4 @@ expected_functions:
   - _transfer
 source: spec §7 STRUCT_EXTERNAL_GATE; _transfer calls owner-settable IGuard(guard).check
 solc: "0.8.20"
+notes: "Owner amend 2026-09-20: transfer path delegated to an owner-replaceable contract (`setGuard` -> `IGuard(guard).check` in `_transfer`) must be blocked or warned before deployment under the organizers' rule, so Malicious is preferred; `Uncertain(external_dependency)` is the sanctioned abstain (same shape as tier3/lido_ldo_minime); Benign is not accepted."
