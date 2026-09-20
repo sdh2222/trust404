@@ -115,6 +115,8 @@ tools:
     cmd: "python /path/tool.py --in {input} --out {output}/results.json"   # --no-docker mode
   - name: noexit
     cmd: "node noexit/dist/baybench.js {input} {output}/results.json"  # vendored engine, build first
+  - name: ensemble
+    cmd: ".venv/bin/python tools/ensemble.py --bench-out {output}/results.json {input}"  # both engines merged
 ```
 
 `cmd` (amended 2026-09-20, teammate portability): after `{input}`/`{output}` substitution the string goes through `os.path.expandvars`, so a registry entry may point at a teammate's checkout via an environment variable instead of an absolute local path. An unresolved `${VAR}` / `$VAR` is a `RunnerError` that names the variable and the tool (no silent literal path). The command runs with `cwd` = repo root, so `../sibling` relative paths are the other portable form. The registry is committed; machine-specific absolute paths are not.
