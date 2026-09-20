@@ -1,0 +1,3 @@
+source: trust404 PR #1 head cbcef71a (github.com/sdh2222/trust404/pull/1)
+t404_master_at_import: 332aae9 (github.com/ghwo336/T404) — PR head is 6 files ahead of it (ast, baybench, explain, model, rules, rules3); Hojae to push, then replace this line with the T404 commit
+vendored: src/, package.json, package-lock.json, tsconfig.json, run.sh, README.md, .dockerignore, .gitignore

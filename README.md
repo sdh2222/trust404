@@ -100,14 +100,14 @@ tools:
     image: baybench/baseline_keyword:latest          # docker mode
   - name: my_local_tool
     cmd: "python /path/tool.py --in {input} --out {output}/results.json"  # --no-docker
-  - name: teammate_tool
-    cmd: "node ${T404_DIR}/dist/baybench.js {input} {output}/results.json"  # env-relative
+  - name: noexit
+    cmd: "node noexit/dist/baybench.js {input} {output}/results.json"  # vendored engine, build first
 ```
 
-`{input}` and `{output}` are substituted in command mode. Docker mode mounts them at `/input` (ro) and `/output`. `cmd` is also env-expanded (`${T404_DIR}`) with cwd = repo root; an unset variable is a clear error.
+`{input}` and `{output}` are substituted in command mode. Docker mode mounts them at `/input` (ro) and `/output`. `cmd` is also env-expanded (for example `${MY_TOOL_DIR}`) with cwd = repo root; an unset variable is a clear error.
 
 ```bash
-export T404_DIR=/path/to/T404
+(cd noexit && npm ci --ignore-scripts && npx tsc -p tsconfig.json)
 .venv/bin/bench run noexit --no-docker
 ```
 

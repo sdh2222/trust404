@@ -14,5 +14,5 @@ tools:
     cmd: ".venv/bin/python -m detector.cli {input} {output}/results.json"
   - name: noexit
     image: t404/noexit:latest
-    # teammate tool; set T404_DIR to your T404 checkout (dist/baybench.js is built by `npm run build` there)
-    cmd: "node ${T404_DIR}/dist/baybench.js {input} {output}/results.json"
+    # vendored teammate engine (noexit/UPSTREAM); build first: cd noexit && npm ci --ignore-scripts && npx tsc -p tsconfig.json
+    cmd: "node noexit/dist/baybench.js {input} {output}/results.json"
