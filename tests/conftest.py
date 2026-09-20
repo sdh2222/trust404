@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -70,3 +72,29 @@ def tmp_cases(tmp_path: Path) -> Path:
     )
 
     return cases
+
+
+@pytest.fixture(scope="session")
+def noexit_dist() -> Path:
+    if shutil.which("node") is None or shutil.which("npm") is None:
+        pytest.skip("node/npm missing")
+    repo = Path(__file__).resolve().parent.parent
+    dist = repo / "noexit" / "dist"
+    if not (dist / "cli.js").is_file():
+        noexit = repo / "noexit"
+        if not (noexit / "node_modules").exists():
+            subprocess.run(
+                ["npm", "ci", "--ignore-scripts"],
+                check=True,
+                capture_output=True,
+                text=True,
+                cwd=noexit,
+            )
+        subprocess.run(
+            ["npx", "tsc", "-p", "tsconfig.json"],
+            check=True,
+            capture_output=True,
+            text=True,
+            cwd=noexit,
+        )
+    return dist

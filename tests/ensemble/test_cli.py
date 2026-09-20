@@ -63,7 +63,7 @@ def _assert_tier0_verdicts(rows: list[dict]) -> None:
     assert by_file == EXPECTED_VERDICTS
 
 
-def test_judge_mode_public_set(flat_tier0: Path) -> None:
+def test_judge_mode_public_set(flat_tier0: Path, noexit_dist: Path) -> None:
     proc = _run_ensemble(flat_tier0)
     assert proc.returncode == 0, proc.stderr
     rows = json.loads(proc.stdout)
@@ -78,7 +78,7 @@ def test_judge_mode_public_set(flat_tier0: Path) -> None:
     assert "DEGRADED" not in proc.stderr
 
 
-def test_judge_mode_deterministic(flat_tier0: Path) -> None:
+def test_judge_mode_deterministic(flat_tier0: Path, noexit_dist: Path) -> None:
     first = _run_ensemble(flat_tier0)
     second = _run_ensemble(flat_tier0)
     assert first.returncode == 0, first.stderr
@@ -86,7 +86,9 @@ def test_judge_mode_deterministic(flat_tier0: Path) -> None:
     assert first.stdout == second.stdout
 
 
-def test_bench_mode_deterministic(flat_tier0: Path, tmp_path: Path) -> None:
+def test_bench_mode_deterministic(
+    flat_tier0: Path, tmp_path: Path, noexit_dist: Path
+) -> None:
     first_path = tmp_path / "a" / "results.json"
     second_path = tmp_path / "b" / "results.json"
     first_path.parent.mkdir()
@@ -98,7 +100,9 @@ def test_bench_mode_deterministic(flat_tier0: Path, tmp_path: Path) -> None:
     assert first_path.read_bytes() == second_path.read_bytes()
 
 
-def test_judge_mode_noexit_dead_is_degraded(flat_tier0: Path) -> None:
+def test_judge_mode_noexit_dead_is_degraded(
+    flat_tier0: Path, noexit_dist: Path
+) -> None:
     env = {**os.environ, "ENSEMBLE_NODE": "/nonexistent/node"}
     proc = _run_ensemble(flat_tier0, env=env)
     assert proc.returncode == 0, proc.stderr
@@ -108,7 +112,9 @@ def test_judge_mode_noexit_dead_is_degraded(flat_tier0: Path) -> None:
     _assert_tier0_verdicts(rows)
 
 
-def test_judge_mode_detector_dead_is_degraded(flat_tier0: Path, tmp_path: Path) -> None:
+def test_judge_mode_detector_dead_is_degraded(
+    flat_tier0: Path, tmp_path: Path, noexit_dist: Path
+) -> None:
     shim = tmp_path / "bad_python"
     shim.write_text("#!/bin/sh\nexit 1\n", encoding="utf-8")
     shim.chmod(0o755)
@@ -123,6 +129,7 @@ def test_judge_mode_detector_dead_is_degraded(flat_tier0: Path, tmp_path: Path) 
 
 def test_judge_mode_engines_flag_detector_only_matches_detector_cli(
     flat_tier0: Path,
+    noexit_dist: Path,
 ) -> None:
     ens = _run_ensemble(flat_tier0, extra=["--engines", "detector"])
     assert ens.returncode == 0, ens.stderr
@@ -147,7 +154,7 @@ def test_judge_mode_engines_flag_detector_only_matches_detector_cli(
 
 
 def test_bench_mode_writes_schema_valid_results(
-    flat_tier0: Path, tmp_path: Path
+    flat_tier0: Path, tmp_path: Path, noexit_dist: Path
 ) -> None:
     out_dir = tmp_path / "out"
     out_dir.mkdir()

@@ -54,7 +54,9 @@ def test_run_sh_no_backend_exits_2_empty_stdout(tmp_path: Path) -> None:
     assert "noexit" in err
 
 
-def test_run_sh_detector_broken_runs_noexit_degraded(tmp_path: Path) -> None:
+def test_run_sh_detector_broken_runs_noexit_degraded(
+    tmp_path: Path, noexit_dist: Path
+) -> None:
     shim = tmp_path / "no_slither"
     shim.write_text("#!/bin/sh\nexit 1\n", encoding="utf-8")
     shim.chmod(0o755)
@@ -117,7 +119,7 @@ def test_run_sh_noexit_broken_runs_detector_degraded(tmp_path: Path) -> None:
     assert by_file["P5_DelegatecallBackdoor_sol.sol"] == "MALICIOUS"
 
 
-def test_run_sh_no_docker_tier0(tmp_path: Path) -> None:
+def test_run_sh_no_docker_tier0(tmp_path: Path, noexit_dist: Path) -> None:
     dest = _flat_tier0(tmp_path)
     env = {**os.environ, "DETECTOR_NO_DOCKER": "1"}
     env.pop("DETECTOR_PYTHON", None)
@@ -149,7 +151,7 @@ def test_run_sh_no_args_exits_2_empty_stdout() -> None:
     assert proc.stdout == ""
 
 
-def test_judge_smoke_tier0(tmp_path: Path) -> None:
+def test_judge_smoke_tier0(tmp_path: Path, noexit_dist: Path) -> None:
     dest = _flat_tier0(tmp_path)
     env = {**os.environ, "DETECTOR_NO_DOCKER": "1"}
     env.pop("DETECTOR_PYTHON", None)
