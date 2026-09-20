@@ -70,6 +70,15 @@ def test_readme_front_page_sections() -> None:
     text = README.read_text(encoding="utf-8")
     assert text.startswith("# trust404\n"), "README title must be # trust404"
     assert re.search(r"(?m)^## How it decides$", text), "README is missing ## How it decides"
+    judges = re.search(
+        r"(?ms)^## TRUST404 Track 1 submission — judges start here$.*?(?=^## |\Z)",
+        text,
+    )
+    assert judges is not None, "README is missing the judges section"
+    body = judges.group(0)
+    assert "**Do this.**" in body and "**Do not.**" in body
+    digest = "ghcr.io/sdh2222/trust404-ensemble@sha256:0822a5a91630f53a1f4acf86ff97ecf5c83be5648361c4e1967ca6dde3a47440"
+    assert body.find("**Do this.**") < body.find(digest) < body.find("**Do not.**")
 
 
 def test_readme_links_agents_md() -> None:
