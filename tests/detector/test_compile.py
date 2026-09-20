@@ -497,7 +497,19 @@ def test_remappings_txt_maps_prefix(tmp_path: Path) -> None:
     assert [c.name for c in target_contracts(result.slither, src)] == ["T"]
 
 
-def test_foundry_toml_profile_remappings(tmp_path: Path) -> None:
+def _path_without(tool: str) -> str:
+    """PATH with every directory that provides `tool` removed (judge image / CI have no forge)."""
+    keep = []
+    for entry in os.environ.get("PATH", "").split(os.pathsep):
+        if entry and not (Path(entry) / tool).exists():
+            keep.append(entry)
+    return os.pathsep.join(keep)
+
+
+def test_foundry_toml_profile_remappings(tmp_path: Path, monkeypatch) -> None:
+    # crytic-compile auto-detects Foundry from foundry.toml and would run `forge`;
+    # hide it like the judge image does so the test proves we force plain solc.
+    monkeypatch.setenv("PATH", _path_without("forge"))
     _link(tmp_path / "lib" / "oz" / "contracts", VENDOR_OZ)
     (tmp_path / "foundry.toml").write_text(
         '[profile.default]\nremappings = ["@oz/=lib/oz/contracts/"]\n',
