@@ -31,7 +31,7 @@ PREAMBLE = r'''// Auto-generated — formatting only.
         column-gutter: 1em,
         align: (left + horizon, right + horizon),
         text(style: "italic")[@@RUNNING@@],
-        text(tracking: 0.6pt)[TRUST404  ·  Track 1],
+        text(tracking: 0.6pt)[@@SERIES@@],
       )
       v(0.18em)
       line(length: 100%, stroke: 0.4pt + rgb("#222222"))
@@ -95,6 +95,8 @@ PREAMBLE = r'''// Auto-generated — formatting only.
 )
 
 #show raw: set text(font: "Courier New", size: 8.85pt)
+#show figure.caption: set text(size: 9.1pt)
+#show figure.caption: set par(leading: 0.62em)
 #show link: set text(fill: rgb("#1a365d"))
 #show link: it => underline(stroke: 0.4pt + rgb("#1a365d"), offset: 1.4pt, it)
 #show list: block.with(above: 0.5em, below: 1.15em)
@@ -177,13 +179,15 @@ PREAMBLE = r'''// Auto-generated — formatting only.
 '''
 
 
-def fill_preamble(lang: str, doc_title: str, running_title: str) -> str:
+def fill_preamble(lang: str, doc_title: str, running_title: str, series: str) -> str:
     cjk = "KoPubBatang" if lang == "ko" else "NanumMyeongjo"
     running = running_title.replace("\\", "\\\\").replace("&", "\\&")
     title = doc_title.replace("\\", "\\\\").replace('"', '\\"')
+    series_esc = series.replace("\\", "\\\\").replace("&", "\\&")
     return (
         PREAMBLE.replace("@@DOCTITLE@@", title)
         .replace("@@RUNNING@@", running)
+        .replace("@@SERIES@@", series_esc)
         .replace("@@CJKFONT@@", cjk)
         .replace("@@LANG@@", lang)
         .replace("@@HYPHEN@@", "false" if lang == "ko" else "true")
@@ -386,8 +390,16 @@ def convert_table(lines: list[str], start: int) -> tuple[str, int]:
         colspec = "(1.28in, 1fr, 1.22in)"
     elif ncols == 3 and ("lookalike" in h0l or "유사" in h0):
         colspec = "(1.45in, 1fr, 1fr)"
+    elif ncols == 3 and h0l == "tier":
+        colspec = "(0.52in, 0.42in, 1fr)"
     elif ncols == 4:
         colspec = "(1.72in, 0.92in, 1fr, 1.08in)"
+    elif ncols == 5:
+        colspec = "(1.15in, 1fr, 1fr, 1fr, 1fr)"
+    elif ncols == 6:
+        colspec = "(1.05in,) + (1fr,) * 5"
+    elif ncols >= 7:
+        colspec = "(1.05in,) + (1fr,) * " + str(ncols - 1)
 
     out = (
         f"#md-table({ncols}, ({headers_typ},), (\n"
@@ -397,25 +409,67 @@ def convert_table(lines: list[str], start: int) -> tuple[str, int]:
     return out, i
 
 
-def convert_document(md: str, lang: str = "en") -> str:
+def _format_date(raw: str, lang: str) -> str:
+    raw = raw.strip()
+    m = re.fullmatch(r"(\d{4})-(\d{2})-(\d{2})", raw)
+    if m:
+        year, month, day = int(m.group(1)), int(m.group(2)), int(m.group(3))
+        months = (
+            "January February March April May June "
+            "July August September October November December"
+        ).split()
+        if lang == "ko":
+            return f"{year}년 {month}월 {day}일"
+        return f"{day} {months[month - 1]} {year}"
+    return raw
+
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+def typst_image_path(md_path: Path | None, raw: str) -> str:
+    """Resolve a Markdown image path to a Typst project-root path (`/reports/...`)."""
+    if raw.startswith("/"):
+        return raw
+    base = md_path.parent if md_path is not None else Path.cwd()
+    abs_p = (base / raw).resolve()
+    rel = abs_p.relative_to(REPO_ROOT)
+    return "/" + rel.as_posix()
+
+
+def convert_document(
+    md: str,
+    lang: str = "en",
+    running_title: str | None = None,
+    series: str | None = None,
+    md_path: Path | None = None,
+) -> str:
     lines = md.splitlines()
     doc_title = "TRUST404 Track 1"
     for line in lines:
         if line.startswith("# "):
             doc_title = line[2:].strip()
             break
-    if lang == "ko":
+    if running_title:
+        running = running_title
+    elif lang == "ko":
         running = "악성 컨트랙트 다크 패턴"
+    elif "—" in doc_title:
+        running = doc_title.split("—", 1)[1].strip()
+    else:
+        running = doc_title
+    if lang == "ko":
         kicker = "[TRUST404 연구 노트]"
-        date_line = "[2026년 9월 19일]"
+        date_line = "[2026년 9월 20일]"
+        series_mark = series or "TRUST404  ·  Track 1"
         meta_col = "0.72in"
     else:
-        running = "Malicious Contract Dark Patterns: Literature & Taxonomy"
         kicker = "[#smallcaps[Trust404 Research Note]]"
-        date_line = "[19 September 2026]"
+        date_line = "[20 September 2026]"
+        series_mark = series or "TRUST404  ·  Track 1"
         meta_col = "0.88in"
 
-    out: list[str] = [fill_preamble(lang, doc_title, running), "\n"]
+    out: list[str] = [fill_preamble(lang, doc_title, running, series_mark), "\n"]
     # Korean labels are short; keep the meta first-column width in the call site.
     _ = meta_col
     i = 0
@@ -445,6 +499,10 @@ def convert_document(md: str, lang: str = "en") -> str:
                 i += 1
                 continue
             break
+        for label, value in meta_rows:
+            if label.strip().lower() == "date":
+                date_line = "[" + _format_date(value, lang) + "]"
+                break
         out.append('#align(center)[\n')
         out.append('  #set par(spacing: 0.35em, leading: 0.78em, justify: false)\n')
         out.append('  #text(size: 9pt, tracking: 0.9pt, weight: "bold", fill: rgb("#222222"))')
@@ -505,6 +563,19 @@ def convert_document(md: str, lang: str = "en") -> str:
             out.append(block)
             continue
 
+        img = re.match(r"^!\[([^\]]*)\]\(([^)]+)\)\s*$", stripped)
+        if img:
+            alt, path = img.group(1), img.group(2)
+            caption = convert_inline(alt) if alt.strip() else convert_inline("Figure")
+            out.append(
+                "#figure(\n"
+                f"  image({typst_string(typst_image_path(md_path, path))}, width: 92%),\n"
+                f"  caption: [{caption}],\n"
+                ")\n\n"
+            )
+            i += 1
+            continue
+
         if stripped.startswith(">"):
             quote_lines = []
             while i < n and lines[i].strip().startswith(">"):
@@ -525,6 +596,8 @@ def convert_document(md: str, lang: str = "en") -> str:
             if not st:
                 return True
             if st == "---" or st.startswith("|") or st.startswith("#") or st.startswith(">"):
+                return True
+            if st.startswith("!["):
                 return True
             if re.match(r"^([-*] |\d+\. )", st):
                 return True
@@ -575,12 +648,20 @@ def main() -> None:
     parser.add_argument("md", nargs="?", default=str(MD_PATH))
     parser.add_argument("-o", "--output")
     parser.add_argument("--lang", choices=["en", "ko"])
+    parser.add_argument("--running")
+    parser.add_argument("--series")
     args = parser.parse_args()
     md_path = Path(args.md)
     lang = args.lang or ("ko" if ".ko." in md_path.name else "en")
     out_path = Path(args.output) if args.output else md_path.with_suffix(".typ")
     md = md_path.read_text(encoding="utf-8")
-    typ = convert_document(md, lang=lang)
+    typ = convert_document(
+        md,
+        lang=lang,
+        running_title=args.running,
+        series=args.series,
+        md_path=md_path,
+    )
     out_path.write_text(typ, encoding="utf-8")
     print(f"Wrote {out_path}")
 
