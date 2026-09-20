@@ -26,7 +26,7 @@ Caveat: the corpus has no non-compiling benign file, so the cost side of "BENIGN
 
 ### Get the runtime
 
-1. Published `linux/amd64` ensemble image `ghcr.io/sdh2222/trust404-ensemble@sha256:<ENSEMBLE-DIGEST-TBD>` (also `:latest`), then `docker tag ghcr.io/sdh2222/trust404-ensemble@sha256:<ENSEMBLE-DIGEST-TBD> trust404/ensemble:latest`; or `docker load < trust404-ensemble-amd64.tar.gz` from the release (sha256 `<ENSEMBLE-SHA-TBD>`). Arm64 hosts add `--platform linux/amd64`.
+1. Published `linux/amd64` ensemble image `ghcr.io/sdh2222/trust404-ensemble@sha256:0822a5a91630f53a1f4acf86ff97ecf5c83be5648361c4e1967ca6dde3a47440` (also tagged `:submission-rc2`, `:latest`; built by CI from tag `submission-rc2` = commit `3474ffc`), then `docker tag ghcr.io/sdh2222/trust404-ensemble@sha256:0822a5a91630f53a1f4acf86ff97ecf5c83be5648361c4e1967ca6dde3a47440 trust404/ensemble:latest`; or `docker load < trust404-ensemble-amd64.tar.gz` (454 MB) from the [release](https://github.com/sdh2222/trust404/releases/tag/submission-rc2) (sha256 `8daa316f7a81ec5f8346a732710bb7c1fcdb06d5fbcd3d4a5db69a609fa54eac`). Arm64 hosts add `--platform linux/amd64`. Verified 2026-09-20: this digest pulled by hash, run with `--network none --user 65534:65534 --read-only --cap-drop ALL --memory 4g --cpus 2 --pids-limit 512` on the five public samples → P1/P4 BENIGN, P2/P3/P5 MALICIOUS, both engines alive, schema-valid.
 2. `docker build --platform linux/amd64 --build-arg BASE=ghcr.io/sdh2222/trust404-detector:latest -t trust404/ensemble:latest .`
 3. No Docker: `scripts/setup_local.sh && (cd noexit && npm ci --ignore-scripts && npx tsc -p tsconfig.json)` (Python ≥ 3.11, Node ≥ 18).
 
@@ -57,8 +57,9 @@ JUDGE_SMOKE_REQUIRE_ENGINES=detector,noexit scripts/judge_smoke.sh ./cases
 
 ### Single-engine images
 
-- `docker pull ghcr.io/sdh2222/trust404-detector@sha256:947d696010cf61246793562dd708de1582cf732126b7714a74ef75b3540ca9dc` (also tagged `:submission-rc1`, `:latest`), then `docker tag ghcr.io/sdh2222/trust404-detector@sha256:947d696010cf61246793562dd708de1582cf732126b7714a74ef75b3540ca9dc trust404/detector:latest`
-- or `docker load < trust404-detector-amd64.tar.gz` from the [release](https://github.com/sdh2222/trust404/releases/tag/submission-rc1) (sha256 `fc897f1fa13a73bf18726c840a6876fa253c1177f9dc1bc8a8fc9bdc19957393`)
+- `docker pull ghcr.io/sdh2222/trust404-detector@sha256:5de570d30a3636712fb9b8ee10f23cfc9aaa80ba81da2c3669fb178f89d9363f` (also tagged `:submission-rc2`, `:latest`; the ensemble image above is built `FROM` this digest), then `docker tag ghcr.io/sdh2222/trust404-detector@sha256:5de570d30a3636712fb9b8ee10f23cfc9aaa80ba81da2c3669fb178f89d9363f trust404/detector:latest`
+- or `docker load < trust404-detector-amd64.tar.gz` (322 MB) from the [release](https://github.com/sdh2222/trust404/releases/tag/submission-rc2) (sha256 `777ddac8989d53bc7bdeb35a73e29f2740a5f7ea7e5c6a56d79c3ae303aebb61`)
+- previous: `submission-rc1` detector digest `947d696010cf61246793562dd708de1582cf732126b7714a74ef75b3540ca9dc` ([release](https://github.com/sdh2222/trust404/releases/tag/submission-rc1), tarball sha256 `fc897f1fa13a73bf18726c840a6876fa253c1177f9dc1bc8a8fc9bdc19957393`); rc2 adds only the plain-solc framework pin (`compile_force_framework="solc"`), verdicts unchanged on the bench
 - the manifest is `linux/amd64` only; on an arm64 host (Apple Silicon) add `--platform linux/amd64` to `docker pull` / `docker run` and it executes under qemu
 
 ```bash
