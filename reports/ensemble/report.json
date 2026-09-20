@@ -7,18 +7,18 @@
     "n_cases": 863,
     "overall": {
       "n_cases": 863,
-      "mean_verdict_score": 0.8922,
-      "family_recall": 0.9275,
+      "mean_verdict_score": 0.8934,
+      "family_recall": 0.9277,
       "rule_recall": 1.0,
       "high_fp_rate": 0.0,
       "evidence_hit_rate": 1.0,
       "uncertain_rate": 0.2028,
       "missing_count": 0,
       "compile_fail_count": 175,
-      "runtime_p50": 643.7583,
-      "runtime_p95": 643.7583
+      "runtime_p50": 973.9589,
+      "runtime_p95": 973.9589
     },
-    "weighted_score": 0.9756,
+    "weighted_score": 0.9803,
     "tier0_exact": {
       "k": 5,
       "n": 5
@@ -39,7 +39,7 @@
       },
       "tier1_pairs": {
         "n_cases": 71,
-        "mean_verdict_score": 0.9859,
+        "mean_verdict_score": 1.0,
         "family_recall": 1.0,
         "rule_recall": 1.0,
         "high_fp_rate": 0.0,
@@ -131,7 +131,7 @@
         "runtime_p95": null
       },
       "E": {
-        "n_cases": 5,
+        "n_cases": 6,
         "mean_verdict_score": 1.0,
         "family_recall": 1.0,
         "rule_recall": 1.0,
@@ -1603,18 +1603,19 @@
       {
         "id": "tier1/STRUCT_EXTERNAL_GATE/mal",
         "tier": "tier1_pairs",
-        "preferred": "Uncertain",
+        "preferred": "Malicious",
         "accepted": [
+          "Malicious",
           "Uncertain"
         ],
         "actual": "Malicious",
-        "score": 0.0,
+        "score": 1.0,
         "missing": false,
         "reason": "",
         "uncertain": false,
         "compile_fail": false,
-        "family_hit": null,
-        "rule_hit": null,
+        "family_hit": true,
+        "rule_hit": true,
         "evidence_hit": true,
         "high_fp": null,
         "fired_rule_ids": [
@@ -1625,7 +1626,7 @@
           "A",
           "E"
         ],
-        "exact": false
+        "exact": true
       },
       {
         "id": "tier1/STRUCT_PROXY_EOA_ADMIN/ben",
@@ -25113,7 +25114,7 @@
       },
       "E": {
         "n_cases": 10,
-        "n_malicious": 5,
+        "n_malicious": 6,
         "n_benign": 4
       },
       "F": {
@@ -26227,7 +26228,7 @@
     "diffs": []
   },
   "runtime": {
-    "p50": 643.7583,
-    "p95": 643.7583
+    "p50": 973.9589,
+    "p95": 973.9589
   }
 }
