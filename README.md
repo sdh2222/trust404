@@ -1,6 +1,16 @@
-# BAYBENCH
+# trust404
+
+EarthIsMine · TRUST404 Track 1 · two-engine offline Solidity malice detector + BAYBENCH.
 
 Coding agents: see [AGENTS.md](AGENTS.md).
+
+[![submission-rc2](https://img.shields.io/badge/tag-submission--rc2-222222)](https://github.com/sdh2222/trust404/releases/tag/submission-rc2)
+
+<p align="center">
+  <img src="docs/research/figures/baybench_05_harness.png" width="720" alt="BAYBENCH stages labelled cases into a registered tool and scores that tool's results.json">
+</p>
+
+BAYBENCH stages labelled `.sol` files into any registered tool (Docker image or command) and scores the tool's `results.json`. The harness never imports the tool. Source: [baybench_05_harness.excalidraw](docs/research/figures/baybench_05_harness.excalidraw). Spec: [docs/specs/baybench.md](docs/specs/baybench.md#purpose).
 
 ## TRUST404 Track 1 submission — judges start here
 
@@ -71,17 +81,53 @@ docker run --rm --network none -e DETECTOR_MODE=submission \
 
 Verdict derivation: [detector/README.md](detector/README.md) · [noexit/README.md](noexit/README.md). Specs: [docs/specs/ensemble.md](docs/specs/ensemble.md), [docs/specs/detector.md](docs/specs/detector.md).
 
-## BAYBENCH harness
+## How it decides
+
+Two complete engines sit behind one entry point. `detector` is a Python / Slither-IR tool: a name-agnostic triple of privileged writer, writable state, and whether that state reaches the holder ([detector spec](docs/specs/detector.md)). `noexit` is a TypeScript AST rule engine ([noexit/README.md](noexit/README.md); pin: [noexit/UPSTREAM](noexit/UPSTREAM)). Per file the merge is MALICIOUS if either engine says so, BENIGN only when detector says so, UNCERTAIN otherwise ([ensemble verdict rule](docs/specs/ensemble.md#verdict-rule)).
+
+![Privileged writer, writable state, and user-facing impact must all hold or there is no finding; no rule matches a user identifier against a word list.](docs/research/figures/baybench_01_predicate.png)
+
+Source: [baybench_01_predicate.excalidraw](docs/research/figures/baybench_01_predicate.excalidraw). Spec: [`analysis/privilege.py`](docs/specs/detector.md#analysisprivilegepy-research-5-predicate-1--name-agnostic).
+
+![A privileged write to a gated mapping is read on the transfer() → _transfer() call-graph path, including checks in modifiers and helpers.](docs/research/figures/baybench_02_transfer_path.png)
+
+Source: [baybench_02_transfer_path.excalidraw](docs/research/figures/baybench_02_transfer_path.excalidraw). Spec: [`analysis/transfer_path.py`](docs/specs/detector.md#analysistransfer_pathpy-research-5-predicate-3a3b-4-placement).
+
+![A finding is adjusted by governance (severity unchanged) or bounding (demoted to INFO); decide() then maps a counting finding to Malicious, an external gate to Uncertain, else Benign.](docs/research/figures/baybench_03_verdict_ladder.png)
+
+Source: [baybench_03_verdict_ladder.excalidraw](docs/research/figures/baybench_03_verdict_ladder.excalidraw). Spec: [`policy.py` decisive mode](docs/specs/detector.md#policypy--decisive-mode-phase-5-ratified-by-the-owner-2026-09-20-0255-replaces-the-phase-4-concealment-ladder-below).
+
+![Ladder rewrites go to a hard-linked scratch mirror of the input tree, not the read-only /input mount.](docs/research/figures/baybench_04_scratch_mirror.png)
+
+Source: [baybench_04_scratch_mirror.excalidraw](docs/research/figures/baybench_04_scratch_mirror.excalidraw). Spec: [`compile.py` scratch mirror](docs/specs/detector.md#compilepy).
+
+![P2 HiddenMint and P4 CappedMint emit the same BAL_PRIV_MINT finding; only the constant_cap discriminator separates Malicious from Benign.](docs/research/figures/baybench_07_same_finding.png)
+
+Source: [baybench_07_same_finding.excalidraw](docs/research/figures/baybench_07_same_finding.excalidraw). Spec: [discriminator classes](docs/specs/detector.md#policypy--decisive-mode-phase-5-ratified-by-the-owner-2026-09-20-0255-replaces-the-phase-4-concealment-ladder-below).
+
+## BAYBENCH
+
+![BAYBENCH stages labelled cases into a registered tool (Docker image or command) and scores results.json; the harness never imports the tool.](docs/research/figures/baybench_05_harness.png)
+
+Source: [baybench_05_harness.excalidraw](docs/research/figures/baybench_05_harness.excalidraw). Spec: [purpose](docs/specs/baybench.md#purpose), [registry](docs/specs/baybench.md#registry--baybenchtoolsyaml).
+
+![One case is scored against the preferred verdict (1.0) and any accepted verdict (0.75); Uncertain is 0.5, anything else 0.0. The headline is the weighted mean of per-tier means, not the mean over cases.](docs/research/figures/baybench_06_scoring.png)
+
+Source: [baybench_06_scoring.excalidraw](docs/research/figures/baybench_06_scoring.excalidraw). Spec: [`scoring.py`](docs/specs/baybench.md#module-interfaces-baybench-package).
+
+![Family recall is any-hit: firing the tagged family is a hit; extra families are neither rewarded nor penalised.](docs/research/figures/baybench_08_family_recall.png)
+
+Source: [baybench_08_family_recall.excalidraw](docs/research/figures/baybench_08_family_recall.excalidraw). Spec: [`family_recall` in `scoring.py`](docs/specs/baybench.md#module-interfaces-baybench-package). Worklist: [docs/bench/misses.md](docs/bench/misses.md).
 
 Offline harness for TRUST404 Track 1 detectors. A tool is a black box: it reads a directory of `.sol` files and writes one `results.json`. BAYBENCH scores that output identically for every teammate, then lists the misses to iterate on. Pattern and rule IDs come from [docs/research/track1-malice-patterns.md](docs/research/track1-malice-patterns.md); the spec is [docs/specs/baybench.md](docs/specs/baybench.md).
 
-## Install
+### Install
 
 ```bash
 uv venv --python 3.12 .venv && uv pip install -e '.[dev]'
 ```
 
-## Commands
+### Commands
 
 ```bash
 bench run baseline_keyword --tier 1 --no-docker
@@ -95,7 +141,7 @@ bench ingest-paper piedpiper path/to/sources
 
 `bench run` double-runs by default (`--repeat 2`), writes `reports/<tool>/report.md` and `report.json`, and prints weighted score, determinism, and compile-fail count. `ingest-discord` / `ingest-paper` are seams for Tier 0 / Tier 2 (BB-8, BB-9); they exit 2 until those tasks land.
 
-## `results.json` shape
+### `results.json` shape
 
 ```json
 {
@@ -123,7 +169,7 @@ bench ingest-paper piedpiper path/to/sources
 
 `file` is relative to the staged input root (`<case.id>/<case.file>`). Verdicts are `Benign | Malicious | Uncertain`. Schema: `baybench/schema/result.schema.json`.
 
-## Register a tool
+### Register a tool
 
 Add an entry to `baybench/tools.yaml`:
 
@@ -144,7 +190,7 @@ tools:
 .venv/bin/bench run noexit --no-docker
 ```
 
-## Grading parity
+### Grading parity
 
 Grading parity is `docker run --rm --network none`. Network-dependent tools score zero by construction. The bench image (`Dockerfile.bench`) bakes in `solc-select` compilers so `bench validate` runs offline (BB-11):
 
@@ -152,3 +198,48 @@ Grading parity is `docker run --rm --network none`. Network-dependent tools scor
 docker build -f Dockerfile.bench -t baybench .
 docker run --rm --network none baybench validate
 ```
+
+## Results
+
+The live `submission-rc2` table is in [TRUST404 Track 1 submission — judges start here](#trust404-track-1-submission--judges-start-here).
+
+### Paper snapshot (20 Sep 2026, n=859)
+
+The four charts below freeze the results-paper run (detector 0.9714, noexit 0.9194, Slither 0.6298, keyword 0.4269). Ledger: [docs/research/earthismine-baybench-results.md](docs/research/earthismine-baybench-results.md). Paper: [docs/research/earthismine-baybench-paper.md](docs/research/earthismine-baybench-paper.md).
+
+![Paper snapshot (20 Sep 2026, n=859): BAYBENCH weighted score by tool — detector 0.9714, noexit 0.9194, Slither 0.6298, keyword 0.4269.](reports/baybench_weighted_score.png)
+
+![Paper snapshot (20 Sep 2026, n=859): mean verdict score by tier for detector, noexit, Slither, and keyword.](reports/baybench_tier_named.png)
+
+![Paper snapshot (20 Sep 2026, n=859): mean verdict score by family (exit gating, balance tamper, leak, hidden owner, structure, honeypot/drain, ponzi).](reports/baybench_family_named.png)
+
+![Paper snapshot (20 Sep 2026, n=859): HIGH false-positive rate on Tier 1 and Tier 3; detector is 0.0 on both.](reports/baybench_high_fp_by_tier.png)
+
+## Research
+
+- [earthismine-baybench-paper.md](docs/research/earthismine-baybench-paper.md) ([PDF](docs/research/earthismine-baybench-paper.pdf)) — results paper for EarthIsMine on BAYBENCH. Track 1 is treated as scam-contract detection: a privileged writer to state that sits on the holder's transfer or exit path, or that touches balances directly. The detector implements that triple on Slither IR, adjusts findings with bounding vs governance discriminators, and resolves them through a three-step ladder. The note freezes one run; it is not the spec.
+- [earthismine-baybench-paper-academic.md](docs/research/earthismine-baybench-paper-academic.md) ([PDF](docs/research/earthismine-baybench-paper-academic.pdf)) — the same snapshot written as a paper (predicate, decision layer, four-tier offline harness, measured evaluation and its limits).
+- [earthismine-baybench-results.md](docs/research/earthismine-baybench-results.md) — number ledger for that snapshot.
+- [track1-malice-patterns.md](docs/research/track1-malice-patterns.md) ([Korean](docs/research/track1-malice-patterns.ko.md)) — literature survey and the A–G family taxonomy the catalog uses.
+- [docs/research/figures/](docs/research/figures/) — architecture diagrams (PNG + Excalidraw source).
+- `docs/research/_md_to_paper.py` converts a research Markdown file to Typst (`python docs/research/_md_to_paper.py <md> [-o out.typ]`).
+- `scripts/plot_baybench_compare.py` builds the `reports/baybench_*.png` charts from committed `reports/<tool>/report.json` (no usage docstring).
+
+Also: [detector spec](docs/specs/detector.md) · [BAYBENCH spec](docs/specs/baybench.md) · [ensemble spec](docs/specs/ensemble.md) · [misses](docs/bench/misses.md) · [submission checklist](docs/submission-checklist.md) · [organizers' public-set rules](docs/judge/challenge_public/README.md).
+
+## Repository layout
+
+| path | owner | what it is |
+|---|---|---|
+| `detector/` | this repo (`sdh2222`) | Python detector on Slither IR. Spec: [docs/specs/detector.md](docs/specs/detector.md). |
+| `noexit/` | Hojae (`ghwo336/T404`); never edited here | TypeScript AST detector, vendored. Pin: [noexit/UPSTREAM](noexit/UPSTREAM). |
+| `tools/`, `run.sh`, root `Dockerfile` | shared | judges' entry point (`tools/ensemble.py`). Spec: [docs/specs/ensemble.md](docs/specs/ensemble.md). |
+| `baybench/` | shared | offline harness. Spec: [docs/specs/baybench.md](docs/specs/baybench.md). |
+| `cases/` | shared | labelled corpus (Tiers 0–3). |
+| `reports/` | shared | `bench run` output and snapshot charts. |
+| `docs/` | shared | specs, [misses](docs/bench/misses.md), research, [judge public set](docs/judge/challenge_public/README.md). |
+| `scripts/` | shared | `setup_local.sh`, plot helpers. |
+
+## Team
+
+EarthIsMine. `detector` is this repo's (`sdh2222`). `noexit` is Hojae's ([ghwo336/T404](https://github.com/ghwo336/T404)), vendored under `noexit/`. How to work in the tree: [CONTRIBUTING.md](CONTRIBUTING.md). Agents: [AGENTS.md](AGENTS.md).
