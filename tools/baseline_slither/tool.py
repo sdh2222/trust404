@@ -7,10 +7,12 @@ detection. Never crashes the whole run: per-file errors become Uncertain.
 from __future__ import annotations
 
 import json
+import os
 import re
 import shutil
 import subprocess
 import sys
+from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 TOOL_NAME = "baseline_slither"
@@ -189,8 +191,18 @@ def analyze_file(rel: str, path: Path) -> dict:
         return _uncertain(rel)
 
 
+def _analyze_pair(item: tuple[str, Path]) -> dict:
+    rel, path = item
+    return analyze_file(rel, path)
+
+
 def classify(input_dir: str | Path) -> list[dict]:
-    return [analyze_file(rel, path) for rel, path in _sol_files(input_dir)]
+    files = _sol_files(input_dir)
+    if len(files) <= 1:
+        return [analyze_file(rel, path) for rel, path in files]
+    workers = min(os.cpu_count() or 4, len(files))
+    with ProcessPoolExecutor(max_workers=workers) as pool:
+        return list(pool.map(_analyze_pair, files))
 
 
 def write_results(output_path: str | Path, results: list[dict]) -> None:
