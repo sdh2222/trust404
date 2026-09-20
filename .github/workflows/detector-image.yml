@@ -15,6 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       IMAGE: ghcr.io/${{ github.repository_owner }}/trust404-detector
+      ENSEMBLE_IMAGE: ghcr.io/${{ github.repository_owner }}/trust404-ensemble
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -94,11 +95,81 @@ jobs:
           cmp out1.json out2.json
           cmp out1.json out3.json
 
+      - name: Build and push ensemble
+        id: push_ensemble
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          platforms: linux/amd64
+          push: true
+          build-args: BASE=${{ env.IMAGE }}@${{ steps.push.outputs.digest }}
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/trust404-ensemble:${{ github.ref_name }}
+            ghcr.io/${{ github.repository_owner }}/trust404-ensemble:latest
+
+      - name: Retag ensemble for run.sh
+        run: |
+          ENSEMBLE_DIGEST="${{ steps.push_ensemble.outputs.digest }}"
+          echo "ENSEMBLE_DIGEST=${ENSEMBLE_DIGEST}" >> "$GITHUB_ENV"
+          docker pull "${ENSEMBLE_IMAGE}@${ENSEMBLE_DIGEST}"
+          docker tag "${ENSEMBLE_IMAGE}@${ENSEMBLE_DIGEST}" trust404/ensemble:latest
+
+      - name: Ensemble hardened smoke
+        run: |
+          set -euo pipefail
+          ENSEMBLE_IMAGE=trust404/ensemble:latest ./run.sh in > out4.json 2> err4.txt
+          grep -q 'engines=ensemble' err4.txt
+          JUDGE_SMOKE_REQUIRE_ENGINES=detector,noexit scripts/judge_smoke.sh in
+          docker run --rm --network none --user 1000:1000 \
+            -e ENSEMBLE_MODE=judge \
+            -v "$PWD/in":/input:ro \
+            trust404/ensemble:latest > out5.json 2> err5.txt
+          docker run --rm --network none --user 65534:65534 \
+            --read-only --tmpfs /tmp --cap-drop ALL \
+            --security-opt no-new-privileges \
+            --memory 4g --cpus 2 --pids-limit 512 \
+            -e ENSEMBLE_MODE=judge \
+            -v "$PWD/in":/input:ro \
+            trust404/ensemble:latest > out6.json 2> err6.txt
+          check-jsonschema --schemafile detector/schema/judge.schema.json out4.json
+          check-jsonschema --schemafile detector/schema/judge.schema.json out5.json
+          check-jsonschema --schemafile detector/schema/judge.schema.json out6.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          def check(path: str) -> None:
+              obj = json.loads(Path(path).read_text(encoding="utf-8"))
+              assert isinstance(obj, list) and len(obj) == 5, path
+              for row in obj:
+                  name = row["file"]
+                  verdict = row["verdict"]
+                  if name.startswith("P1") or name.startswith("P4"):
+                      assert verdict == "BENIGN", (path, name, verdict)
+                  elif name.startswith("P2") or name.startswith("P3") or name.startswith("P5"):
+                      assert verdict == "MALICIOUS", (path, name, verdict)
+                  else:
+                      raise AssertionError((path, name))
+
+          for path in ("out4.json", "out5.json", "out6.json"):
+              check(path)
+          PY
+          for n in 4 5 6; do
+            grep -q '\[ensemble\] detector: 5 rows' "err${n}.txt"
+            grep -q '\[ensemble\] noexit: 5 rows' "err${n}.txt"
+            ! grep -q DEGRADED "err${n}.txt"
+          done
+          cmp out4.json out5.json && cmp out4.json out6.json
+
       - name: Save amd64 tarball
         run: |
           docker save trust404/detector:latest | gzip > trust404-detector-amd64.tar.gz
           sha256sum trust404-detector-amd64.tar.gz | tee tarball.sha256
           echo "TARBALL_SHA256=$(cut -d' ' -f1 tarball.sha256)" >> "$GITHUB_ENV"
+          docker save trust404/ensemble:latest | gzip > trust404-ensemble-amd64.tar.gz
+          sha256sum trust404-ensemble-amd64.tar.gz | tee ensemble-tarball.sha256
+          echo "ENSEMBLE_TARBALL_SHA256=$(cut -d' ' -f1 ensemble-tarball.sha256)" >> "$GITHUB_ENV"
 
       - name: Publish release asset
         if: github.ref_type == 'tag'
@@ -107,9 +178,9 @@ jobs:
         run: |
           set -euo pipefail
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
-            gh release upload "$GITHUB_REF_NAME" trust404-detector-amd64.tar.gz --clobber
+            gh release upload "$GITHUB_REF_NAME" trust404-detector-amd64.tar.gz trust404-ensemble-amd64.tar.gz --clobber
           else
-            gh release create "$GITHUB_REF_NAME" --notes "digest: $DIGEST" trust404-detector-amd64.tar.gz
+            gh release create "$GITHUB_REF_NAME" --notes "digest: $DIGEST / ensemble digest: $ENSEMBLE_DIGEST" trust404-detector-amd64.tar.gz trust404-ensemble-amd64.tar.gz
           fi
 
       - name: Upload tarball artifact
@@ -119,12 +190,22 @@ jobs:
           path: trust404-detector-amd64.tar.gz
           retention-days: 14
 
+      - name: Upload ensemble tarball artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: trust404-ensemble-amd64
+          path: trust404-ensemble-amd64.tar.gz
+          retention-days: 14
+
       - name: Job summary
         run: |
           {
             echo "- image: \`${IMAGE}:latest\`"
             echo "- digest: \`${DIGEST}\`"
             echo "- tarball sha256: \`${TARBALL_SHA256}\`"
+            echo "- ensemble image: \`${ENSEMBLE_IMAGE}:latest\`"
+            echo "- ensemble digest: \`${ENSEMBLE_DIGEST}\`"
+            echo "- ensemble tarball sha256: \`${ENSEMBLE_TARBALL_SHA256}\`"
             echo
             python3 - <<'PY'
           import json
@@ -134,6 +215,9 @@ jobs:
               ("out1 judge_smoke/run.sh", "out1.json"),
               ("out2 uid 1000", "out2.json"),
               ("out3 hardened", "out3.json"),
+              ("out4 ensemble run.sh", "out4.json"),
+              ("out5 ensemble uid 1000", "out5.json"),
+              ("out6 ensemble hardened", "out6.json"),
           ):
               print(f"### {label}")
               print()

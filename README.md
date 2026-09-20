@@ -2,41 +2,61 @@
 
 ## TRUST404 Track 1 submission — judges start here
 
-Offline static analysis on Slither IR: privilege → state → transfer-path/exit reasoning. Each `.sol` file gets a `MALICIOUS` / `BENIGN` / `UNCERTAIN` verdict with function+line evidence. stdout is exactly one JSON array; logs go to stderr.
+Two independent offline engines (detector: Python on Slither IR, privilege → state → transfer-path reasoning; noexit: TypeScript AST rules, tolerant parser) behind one entry point. Per file **MALICIOUS if either engine says so, BENIGN only when detector says so, UNCERTAIN otherwise**. stdout is exactly one JSON array; logs go to stderr. Consensus was measured and rejected (0.869 vs 0.941 on the compiling BAYBENCH subset) because the engines never disagree by accusing a benign file; see [`docs/specs/ensemble.md`](docs/specs/ensemble.md).
+
+| | organizers' +1/0/−1, 862 labelled | compiling subset (673) | benign FP |
+| --- | --- | --- | --- |
+| detector | 0.720 | 0.923 | 0 |
+| noexit | 0.669 | 0.844 | 0 |
+| **ensemble** | **0.752** | **0.941** | **0** |
+
+Caveat: the corpus has no non-compiling benign file, so the cost side of "BENIGN only from detector" is unmeasured.
 
 ### Get the runtime
 
-1. Published `linux/amd64` image, release `submission-rc1` (built by [`detector-image.yml`](.github/workflows/detector-image.yml) on a native amd64 runner; hardened three-uid smoke green on this exact digest):
-   - `docker pull ghcr.io/sdh2222/trust404-detector@sha256:947d696010cf61246793562dd708de1582cf732126b7714a74ef75b3540ca9dc` (also tagged `:submission-rc1`, `:latest`), then `docker tag ghcr.io/sdh2222/trust404-detector@sha256:947d696010cf61246793562dd708de1582cf732126b7714a74ef75b3540ca9dc trust404/detector:latest`
-   - or `docker load < trust404-detector-amd64.tar.gz` from the [release](https://github.com/sdh2222/trust404/releases/tag/submission-rc1) (sha256 `fc897f1fa13a73bf18726c840a6876fa253c1177f9dc1bc8a8fc9bdc19957393`)
-   - the manifest is `linux/amd64` only; on an arm64 host (Apple Silicon) add `--platform linux/amd64` to `docker pull` / `docker run` and it executes under qemu
-2. `docker build --platform linux/amd64 -f detector/Dockerfile -t trust404/detector:latest .`
-3. `scripts/setup_local.sh`
+1. Published `linux/amd64` ensemble image `ghcr.io/sdh2222/trust404-ensemble@sha256:<ENSEMBLE-DIGEST-TBD>` (also `:latest`), then `docker tag ghcr.io/sdh2222/trust404-ensemble@sha256:<ENSEMBLE-DIGEST-TBD> trust404/ensemble:latest`; or `docker load < trust404-ensemble-amd64.tar.gz` from the release (sha256 `<ENSEMBLE-SHA-TBD>`). Arm64 hosts add `--platform linux/amd64`.
+2. `docker build --platform linux/amd64 --build-arg BASE=ghcr.io/sdh2222/trust404-detector:latest -t trust404/ensemble:latest .`
+3. No Docker: `scripts/setup_local.sh && (cd noexit && npm ci --ignore-scripts && npx tsc -p tsconfig.json)` (Python ≥ 3.11, Node ≥ 18).
 
 ### Run
 
 ```bash
 ./run.sh ./cases > out.json
-docker run --rm --network none -e DETECTOR_MODE=submission \
-  -v "$PWD/cases":/input:ro trust404/detector:latest > out.json
+docker run --rm --network none -e ENSEMBLE_MODE=judge \
+  -v "$PWD/cases":/input:ro trust404/ensemble:latest > out.json
 ```
+
+`run.sh` prints the backend it chose on stderr; if one engine is unavailable it prints `run.sh: DEGRADED:` and runs the other; `ENSEMBLE_ENGINES=detector` (or `noexit`) forces a single engine.
 
 ### Validate
 
 ```bash
 check-jsonschema --schemafile detector/schema/judge.schema.json out.json
-scripts/judge_smoke.sh ./cases
+JUDGE_SMOKE_REQUIRE_ENGINES=detector,noexit scripts/judge_smoke.sh ./cases
 ```
 
 ### Guarantees
 
-- No network at runtime (all solc binaries, Python deps, and OpenZeppelin are vendored in the image).
+- No network at runtime (both engines' dependencies are in the image).
 - Works as any uid and on a read-only rootfs.
-- Fits 2 vCPU / 4 GB / 10 min (480 s global budget, 120 s per file; files past the budget are emitted as UNCERTAIN rather than dropped).
-- Exit 0 even when some files fail.
-- UNCERTAIN only for compile failure / timeout / analysis error / unresolvable external dependency.
+- Fits 2 vCPU / 4 GB / 10 min (ensemble budget 540 s: detector 420 s global + 120 s per file, noexit seconds; files past the budget are emitted as UNCERTAIN, never dropped).
+- Exit 0 even when files or a whole engine fail (`[ensemble] DEGRADED:` on stderr).
+- A MALICIOUS row always carries at least one code location.
 
-Verdict derivation: [detector/README.md](detector/README.md). Spec: [docs/specs/detector.md](docs/specs/detector.md).
+### Single-engine images
+
+- `docker pull ghcr.io/sdh2222/trust404-detector@sha256:947d696010cf61246793562dd708de1582cf732126b7714a74ef75b3540ca9dc` (also tagged `:submission-rc1`, `:latest`), then `docker tag ghcr.io/sdh2222/trust404-detector@sha256:947d696010cf61246793562dd708de1582cf732126b7714a74ef75b3540ca9dc trust404/detector:latest`
+- or `docker load < trust404-detector-amd64.tar.gz` from the [release](https://github.com/sdh2222/trust404/releases/tag/submission-rc1) (sha256 `fc897f1fa13a73bf18726c840a6876fa253c1177f9dc1bc8a8fc9bdc19957393`)
+- the manifest is `linux/amd64` only; on an arm64 host (Apple Silicon) add `--platform linux/amd64` to `docker pull` / `docker run` and it executes under qemu
+
+```bash
+docker run --rm --network none -e DETECTOR_MODE=submission \
+  -v "$PWD/cases":/input:ro trust404/detector:latest > out.json
+```
+
+`noexit/run.sh <dir>` after building `noexit/dist`.
+
+Verdict derivation: [detector/README.md](detector/README.md) · [noexit/README.md](noexit/README.md). Specs: [docs/specs/ensemble.md](docs/specs/ensemble.md), [docs/specs/detector.md](docs/specs/detector.md).
 
 ## BAYBENCH harness
 

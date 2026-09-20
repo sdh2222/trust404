@@ -25,9 +25,42 @@ else
 fi
 
 set +e
-"${ROOT}/run.sh" "$DIR" > "$OUT"
-run_exit=$?
+if [[ -n "${JUDGE_SMOKE_REQUIRE_ENGINES:-}" ]]; then
+  "${ROOT}/run.sh" "$DIR" > "$OUT" 2> "${WORKDIR}/run.err"
+  run_exit=$?
+  cat "${WORKDIR}/run.err" >&2
+else
+  "${ROOT}/run.sh" "$DIR" > "$OUT"
+  run_exit=$?
+fi
 set -e
+
+_require_engines() {
+  local engines="${JUDGE_SMOKE_REQUIRE_ENGINES:-}"
+  if [[ -z "$engines" ]]; then
+    return 0
+  fi
+  local err="${WORKDIR}/run.err"
+  local raw e
+  local IFS=','
+  local -a wanted
+  read -ra wanted <<< "$engines"
+  for raw in "${wanted[@]}"; do
+    e="$(printf '%s' "$raw" | tr -d '[:space:]')"
+    if [[ -z "$e" ]]; then
+      continue
+    fi
+    if ! grep -E -q "\[ensemble\] ${e}: [0-9]+ rows" "$err"; then
+      echo "judge_smoke: engine check failed: missing [ensemble] ${e}: N rows" >&2
+      exit 1
+    fi
+  done
+  if grep -q DEGRADED "$err"; then
+    echo "judge_smoke: engine check failed: DEGRADED present" >&2
+    exit 1
+  fi
+  echo "judge_smoke: engines ok: ${engines}"
+}
 
 if command -v check-jsonschema >/dev/null 2>&1; then
   set +e
@@ -47,6 +80,7 @@ if command -v jq >/dev/null 2>&1; then
   m="$(jq '[.[] | select(.verdict=="MALICIOUS")] | length' "$OUT")"
   b="$(jq '[.[] | select(.verdict=="BENIGN")] | length' "$OUT")"
   u="$(jq '[.[] | select(.verdict=="UNCERTAIN")] | length' "$OUT")"
+  _require_engines
   echo "judge_smoke: ${n} files, ${m} MALICIOUS, ${b} BENIGN, ${u} UNCERTAIN, run.sh exit=${run_exit}"
 else
   "$PY" -c '
@@ -54,7 +88,7 @@ import json
 import sys
 
 path = sys.argv[1]
-run_exit = sys.argv[2]
+counts_path = sys.argv[2]
 obj = json.load(open(path, encoding="utf-8"))
 if not (isinstance(obj, list) and obj):
     raise SystemExit("expected a non-empty JSON array")
@@ -64,11 +98,12 @@ b = sum(1 for row in obj if row.get("verdict") == "BENIGN")
 u = sum(1 for row in obj if row.get("verdict") == "UNCERTAIN")
 for row in obj:
     print("%s\t%s" % (row["file"], row["verdict"]))
-print(
-    "judge_smoke: %s files, %s MALICIOUS, %s BENIGN, %s UNCERTAIN, run.sh exit=%s"
-    % (n, m, b, u, run_exit)
-)
-' "$OUT" "$run_exit"
+with open(counts_path, "w", encoding="utf-8") as fh:
+    fh.write("%s %s %s %s\n" % (n, m, b, u))
+' "$OUT" "${WORKDIR}/counts.txt"
+  _require_engines
+  read -r n m b u < "${WORKDIR}/counts.txt"
+  echo "judge_smoke: ${n} files, ${m} MALICIOUS, ${b} BENIGN, ${u} UNCERTAIN, run.sh exit=${run_exit}"
 fi
 
 if [[ "$run_exit" -ne 0 || "$val_exit" -ne 0 ]]; then
