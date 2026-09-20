@@ -31,7 +31,12 @@ def test_run_sh_no_backend_exits_2_empty_stdout(tmp_path: Path) -> None:
     shim.chmod(0o755)
     cases = tmp_path / "cases"
     cases.mkdir()
-    env = {**os.environ, "DETECTOR_NO_DOCKER": "1", "DETECTOR_PYTHON": str(shim)}
+    env = {
+        **os.environ,
+        "DETECTOR_NO_DOCKER": "1",
+        "DETECTOR_PYTHON": str(shim),
+        "ENSEMBLE_NODE": str(tmp_path / "no_node"),
+    }
     proc = subprocess.run(
         [str(RUN_SH), str(cases)],
         cwd=str(REPO_ROOT),
@@ -46,9 +51,75 @@ def test_run_sh_no_backend_exits_2_empty_stdout(tmp_path: Path) -> None:
     assert "docker load" in err
     assert "docker build" in err
     assert "setup_local.sh" in err
+    assert "noexit" in err
 
 
-def test_run_sh_no_docker_tier0(tmp_path: Path) -> None:
+def test_run_sh_detector_broken_runs_noexit_degraded(
+    tmp_path: Path, noexit_dist: Path
+) -> None:
+    shim = tmp_path / "no_slither"
+    shim.write_text("#!/bin/sh\nexit 1\n", encoding="utf-8")
+    shim.chmod(0o755)
+    dest = _flat_tier0(tmp_path)
+    env = {**os.environ, "DETECTOR_NO_DOCKER": "1", "DETECTOR_PYTHON": str(shim)}
+    env.pop("ENSEMBLE_NODE", None)
+    proc = subprocess.run(
+        [str(RUN_SH), str(dest)],
+        cwd=str(REPO_ROOT),
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=600,
+    )
+    assert proc.returncode == 0, proc.stderr
+    payload = json.loads(proc.stdout)
+    assert isinstance(payload, list)
+    assert len(payload) == 5
+    validate_against_schema(payload)
+    assert "DEGRADED" in proc.stderr
+    assert "engines=noexit" in proc.stderr
+    by_file = {row["file"]: row["verdict"] for row in payload}
+    assert by_file["P1_StandardToken_sol.sol"] == "BENIGN"
+    assert by_file["P4_CappedMint_sol.sol"] == "BENIGN"
+    assert by_file["P2_HiddenMint_sol.sol"] == "MALICIOUS"
+    assert by_file["P3_Honeypot_sol.sol"] == "MALICIOUS"
+    assert by_file["P5_DelegatecallBackdoor_sol.sol"] == "MALICIOUS"
+
+
+def test_run_sh_noexit_broken_runs_detector_degraded(tmp_path: Path) -> None:
+    dest = _flat_tier0(tmp_path)
+    env = {
+        **os.environ,
+        "DETECTOR_NO_DOCKER": "1",
+        "ENSEMBLE_NODE": str(tmp_path / "no_node"),
+    }
+    env.pop("DETECTOR_PYTHON", None)
+    proc = subprocess.run(
+        [str(RUN_SH), str(dest)],
+        cwd=str(REPO_ROOT),
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=600,
+    )
+    assert proc.returncode == 0, proc.stderr
+    payload = json.loads(proc.stdout)
+    assert isinstance(payload, list)
+    assert len(payload) == 5
+    validate_against_schema(payload)
+    assert "DEGRADED" in proc.stderr
+    assert "engines=detector" in proc.stderr
+    by_file = {row["file"]: row["verdict"] for row in payload}
+    assert by_file["P1_StandardToken_sol.sol"] == "BENIGN"
+    assert by_file["P4_CappedMint_sol.sol"] == "BENIGN"
+    assert by_file["P2_HiddenMint_sol.sol"] == "MALICIOUS"
+    assert by_file["P3_Honeypot_sol.sol"] == "MALICIOUS"
+    assert by_file["P5_DelegatecallBackdoor_sol.sol"] == "MALICIOUS"
+
+
+def test_run_sh_no_docker_tier0(tmp_path: Path, noexit_dist: Path) -> None:
     dest = _flat_tier0(tmp_path)
     env = {**os.environ, "DETECTOR_NO_DOCKER": "1"}
     env.pop("DETECTOR_PYTHON", None)
@@ -80,7 +151,7 @@ def test_run_sh_no_args_exits_2_empty_stdout() -> None:
     assert proc.stdout == ""
 
 
-def test_judge_smoke_tier0(tmp_path: Path) -> None:
+def test_judge_smoke_tier0(tmp_path: Path, noexit_dist: Path) -> None:
     dest = _flat_tier0(tmp_path)
     env = {**os.environ, "DETECTOR_NO_DOCKER": "1"}
     env.pop("DETECTOR_PYTHON", None)

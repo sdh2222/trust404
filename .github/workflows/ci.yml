@@ -30,6 +30,13 @@ jobs:
             detector/requirements.txt
             pyproject.toml
 
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: noexit/package-lock.json
+
       - name: Cache solc binaries
         uses: actions/cache@v4
         with:
@@ -48,6 +55,9 @@ jobs:
               solc-select install "$v"
             fi
           done
+
+      - name: Build noexit
+        run: cd noexit && npm ci --ignore-scripts && npx tsc -p tsconfig.json
 
       - name: Unit + corpus tests
         run: pytest tests -q -p no:cacheprovider
