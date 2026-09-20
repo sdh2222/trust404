@@ -15,7 +15,10 @@ from detector.submission import validate_against_schema
 from tests.detector.conftest import CASES
 
 TIER0 = CASES / "tier0_judge"
-TEST_IMAGE = os.environ.get("DETECTOR_TEST_IMAGE", "trust404/detector:latest")
+IMAGES = {
+    "detector": os.environ.get("DETECTOR_TEST_IMAGE", "trust404/detector:latest"),
+    "ensemble": os.environ.get("ENSEMBLE_TEST_IMAGE", "trust404/ensemble:latest"),
+}
 DSMOKE = Path.home() / ".dsmoke" / "wave-a"
 
 EXPECTED_TIER0 = {
@@ -52,9 +55,9 @@ RELAX_SOURCE = (
 )
 
 
-def _image_present() -> bool:
+def _image_present(image: str) -> bool:
     proc = subprocess.run(
-        ["docker", "image", "inspect", TEST_IMAGE],
+        ["docker", "image", "inspect", image],
         capture_output=True,
         check=False,
     )
@@ -62,9 +65,16 @@ def _image_present() -> bool:
 
 
 pytestmark = pytest.mark.skipif(
-    os.environ.get("DETECTOR_DOCKER_TESTS") != "1" or not _image_present(),
-    reason="DETECTOR_DOCKER_TESTS!=1 or image missing",
+    os.environ.get("DETECTOR_DOCKER_TESTS") != "1",
+    reason="DETECTOR_DOCKER_TESTS!=1",
 )
+
+
+def _image_name(image: str) -> str:
+    for name, tag in IMAGES.items():
+        if tag == image:
+            return name
+    raise AssertionError(image)
 
 
 def _verdict_map(payload: list[dict]) -> dict[str, str]:
@@ -78,7 +88,7 @@ def _verdict_map(payload: list[dict]) -> dict[str, str]:
     return got
 
 
-def _run_detector(opts: list[str], in_dir: Path) -> subprocess.CompletedProcess:
+def _run_image(image: str, opts: list[str], in_dir: Path) -> subprocess.CompletedProcess:
     cmd = [
         "docker",
         "run",
@@ -88,9 +98,18 @@ def _run_detector(opts: list[str], in_dir: Path) -> subprocess.CompletedProcess:
         *opts,
         "-v",
         f"{in_dir}:/input:ro",
-        TEST_IMAGE,
+        image,
     ]
     return subprocess.run(cmd, capture_output=True, timeout=900)
+
+
+@pytest.fixture(scope="module", params=["detector", "ensemble"])
+def image(request: pytest.FixtureRequest) -> str:
+    name = request.param
+    tag = IMAGES[name]
+    if not _image_present(tag):
+        pytest.skip(f"{name} image missing")
+    return tag
 
 
 @pytest.fixture(scope="module")
@@ -106,22 +125,23 @@ def tier0_in() -> Path:
 
 
 @pytest.fixture(scope="module")
-def row_runs(tier0_in: Path) -> dict[str, subprocess.CompletedProcess]:
+def row_runs(image: str, tier0_in: Path) -> dict[str, subprocess.CompletedProcess]:
     out = tier0_in.parent / "out"
-    out.mkdir()
+    out.mkdir(exist_ok=True)
+    if _image_name(image) == "ensemble":
+        mode_opts = ["-e", "ENSEMBLE_MODE=judge", "-v", f"{out}:/output"]
+    else:
+        mode_opts = ["-e", "DETECTOR_MODE=submission", "-v", f"{out}:/output"]
     rows: list[tuple[str, list[str]]] = [
         ("root", []),
         ("user1000", ["--user", "1000:1000"]),
         ("restricted", ROW_RESTRICTED),
         ("readonly_notmpfs", ROW_READONLY),
-        (
-            "mode_submission",
-            ["-e", "DETECTOR_MODE=submission", "-v", f"{out}:/output"],
-        ),
+        ("mode_submission", mode_opts),
     ]
     results: dict[str, subprocess.CompletedProcess] = {}
     for name, opts in rows:
-        results[name] = _run_detector(opts, tier0_in)
+        results[name] = _run_image(image, opts, tier0_in)
     return results
 
 
@@ -130,7 +150,9 @@ def row_runs(tier0_in: Path) -> dict[str, subprocess.CompletedProcess]:
     ["root", "user1000", "restricted", "readonly_notmpfs", "mode_submission"],
 )
 def test_docker_hardening_tier0_row(
-    row_id: str, row_runs: dict[str, subprocess.CompletedProcess]
+    row_id: str,
+    row_runs: dict[str, subprocess.CompletedProcess],
+    image: str,
 ) -> None:
     proc = row_runs[row_id]
     assert proc.returncode == 0, proc.stderr
@@ -140,6 +162,10 @@ def test_docker_hardening_tier0_row(
     validate_against_schema(payload)
     assert _verdict_map(payload) == EXPECTED_TIER0
     assert b"Traceback" not in proc.stderr
+    if _image_name(image) == "ensemble":
+        assert b"[ensemble] detector: 5 rows" in proc.stderr
+        assert b"[ensemble] noexit: 5 rows" in proc.stderr
+        assert b"DEGRADED" not in proc.stderr
 
 
 def test_docker_hardening_stdout_byte_identical(
@@ -149,12 +175,12 @@ def test_docker_hardening_stdout_byte_identical(
     assert row_runs["root"].stdout == row_runs["restricted"].stdout
 
 
-def test_docker_scratch_degrade_relax() -> None:
+def test_docker_scratch_degrade_relax(image: str) -> None:
     dest = DSMOKE / str(uuid.uuid4()) / "in"
     dest.mkdir(parents=True)
     (dest / "Relax.sol").write_text(RELAX_SOURCE, encoding="utf-8")
     try:
-        degraded = _run_detector(ROW_READONLY, dest)
+        degraded = _run_image(image, ROW_READONLY, dest)
         assert degraded.returncode == 0, degraded.stderr
         payload = json.loads(degraded.stdout)
         assert isinstance(payload, list)
@@ -163,7 +189,7 @@ def test_docker_scratch_degrade_relax() -> None:
         assert payload[0]["verdict"] == "UNCERTAIN"
         assert b"Traceback" not in degraded.stderr
 
-        rescued = _run_detector(ROW_RESTRICTED, dest)
+        rescued = _run_image(image, ROW_RESTRICTED, dest)
         assert rescued.returncode == 0, rescued.stderr
         rescued_payload = json.loads(rescued.stdout)
         assert isinstance(rescued_payload, list)
