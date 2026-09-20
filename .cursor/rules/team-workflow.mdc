@@ -1,0 +1,43 @@
+---
+description: Team workflow for trust404 / T404 — branches, PRs, bench numbers, the two engines
+alwaysApply: true
+---
+
+# Team workflow (trust404 ⇄ T404)
+
+Human contract: `CONTRIBUTING.md`. Subagent rules: `docs/agents/grok-subagent-guardrails.md`.
+
+## Git
+
+- `main` is protected. Never `git push origin main`. Work on a branch, open a PR, let `ci` go
+  green, squash-merge. This applies to the orchestrating agent too.
+- One topic per PR; the PR title is the changelog line.
+- Do not commit another session's or another person's working-tree files. Add paths explicitly;
+  never `git add -A` / `git add .`.
+- Tags `submission-*` publish the judge image; only create one after `bench run detector --repeat 2`
+  and the full pytest suite (with `DETECTOR_DOCKER_TESTS=1`) are green on the exact commit.
+
+## Two engines
+
+- `detector/` (Python, Slither IR) is ours; `noexit/` (TypeScript AST, from `ghwo336/T404`) is
+  Hojae's. Do not edit `noexit/**` in this repo — changes go upstream to T404 and are re-vendored
+  with the `UPSTREAM` commit bumped. Do not edit `detector/**` from the T404 side.
+- `tools/ensemble.py`, `run.sh`, root `Dockerfile` are shared: propose, do not land alone.
+- The judge-run invariants in `CONTRIBUTING.md` (stdout array, offline, any uid, read-only rootfs,
+  46 solc pins, OZ v4+v5, budget) are acceptance criteria, not preferences. A PR that regresses one
+  is a bug even if the score goes up.
+
+## Numbers
+
+- No score claim without a `bench run` on this corpus, naming tool, commit, tier set, and whether
+  it is the organizers' +1/0/−1 or BAYBENCH weighted.
+- A Tier 0 verdict moving away from the organizers' label is a stop, not a trade-off.
+- Any Tier 1/3 verdict change needs a `labels.yaml` amendment with the organizers' rule cited and a
+  `docs/bench/misses.md` row, in the same PR.
+- Never run two `bench run` concurrently (shared `.bench_work/`).
+
+## Reviewing a teammate's PR
+
+- Reproduce the claimed number on the current `main` before commenting on it.
+- Review as a comment with measurements; approve / request-changes is the human's call.
+- Prefer "split this into N PRs" over "fix these 12 things" when the diff exceeds one topic.
