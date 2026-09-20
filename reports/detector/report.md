@@ -4,13 +4,13 @@
 
 | metric | value |
 | --- | --- |
-| weighted_score | 0.9714 |
+| weighted_score | 0.9703 |
 | tier0_exact | 5/5 |
-| mean_verdict_score | 0.9012 |
+| mean_verdict_score | 0.9009 |
 | n_cases | 863 |
 | determinism | pass |
-| runtime_p50 | 614.6753 |
-| runtime_p95 | 614.6753 |
+| runtime_p50 | 617.5297 |
+| runtime_p95 | 617.5297 |
 | compile_fail_count | 190 |
 
 ## Per-tier
@@ -18,7 +18,7 @@
 | tier | n | mean_score | family_recall | rule_recall | high_fp_rate | evidence_hit_rate | uncertain_rate |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | tier0_judge | 5 | 1.0 | 1.0 | 1.0 | 0.0 | 1.0 | 0.0 |
-| tier1_pairs | 71 | 1.0 | 1.0 | 1.0 | 0.0 | 1.0 | 0.0282 |
+| tier1_pairs | 71 | 0.9965 | 1.0 | 1.0 | 0.0 | 1.0 | 0.0282 |
 | tier2_realworld | 779 | 0.8909 | 0.9146 | - | - | - | 0.2503 |
 | tier3_benign_risky | 8 | 0.9688 | 1.0 | - | 0.0 | - | 0.125 |
 
@@ -30,7 +30,7 @@
 | B | 108 | 0.9653 |
 | C | 8 | 1.0 |
 | D | 4 | 1.0 |
-| E | 5 | 0.95 |
+| E | 6 | 0.9167 |
 | F | 324 | 0.9923 |
 | G | 1 | 1.0 |
 
