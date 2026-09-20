@@ -4,15 +4,15 @@ Coding agents: see [AGENTS.md](AGENTS.md).
 
 ## TRUST404 Track 1 submission — judges start here
 
-Two independent offline engines (detector: Python on Slither IR, privilege → state → transfer-path reasoning; noexit: TypeScript AST rules, tolerant parser) behind one entry point. Per file **MALICIOUS if either engine says so, BENIGN only when detector says so, UNCERTAIN otherwise**. stdout is exactly one JSON array; logs go to stderr. Consensus was measured and rejected (0.869 vs 0.941 on the compiling BAYBENCH subset) because the engines never disagree by accusing a benign file; see [`docs/specs/ensemble.md`](docs/specs/ensemble.md).
+Two independent offline engines (detector: Python on Slither IR, privilege → state → transfer-path reasoning; noexit: TypeScript AST rules, tolerant parser) behind one entry point. Per file **MALICIOUS if either engine says so, BENIGN only when detector says so, UNCERTAIN otherwise**. stdout is exactly one JSON array; logs go to stderr. Consensus was measured and rejected (0.872 vs 0.944 on the compiling BAYBENCH subset) because the engines never disagree by accusing a benign file; see [`docs/specs/ensemble.md`](docs/specs/ensemble.md).
 
-| | organizers' +1/0/−1, 862 labelled | compiling subset (673) | benign FP |
-| --- | --- | --- | --- |
-| detector | 0.720 | 0.923 | 0 |
-| noexit | 0.669 | 0.844 | 0 |
-| **ensemble** | **0.752** | **0.941** | **0** |
+| | organizers' +1/0/−1, 862 labelled | compiling subset (673) | benign FP | BAYBENCH weighted |
+| --- | --- | --- | --- | --- |
+| detector | 0.723 | 0.926 | 0 | 0.9703 |
+| noexit | 0.672 | 0.847 | 0 | 0.9413 |
+| **ensemble** | **0.754** | **0.944** | **0** | **0.9803** |
 
-Caveat: the corpus has no non-compiling benign file, so the cost side of "BENIGN only from detector" is unmeasured.
+Measured 2026-09-20 on `submission-rc2` (detector Run 9, noexit vendored build `cbcef71a`, both all tiers `--repeat 2`; `reports/detector/`, `reports/noexit/`, `reports/ensemble/`). Organizers' metric: +1 correct, 0 UNCERTAIN, −1 wrong, averaged over the 862 files with a decisive truth (every Tier 2 source is dataset-malicious; Tier 0/1/3 use `preferred_verdict`); "compiling subset" = the 673 files the detector compiles. Alternatives measured and rejected: consensus 0.681, symmetric BENIGN 0.747 (+6 wrong), BENIGN-veto identical to the shipped rule on every file. Caveat: the corpus has no non-compiling benign file, so the cost side of "BENIGN only from detector" is unmeasured.
 
 ### Prerequisites
 
