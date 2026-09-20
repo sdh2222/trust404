@@ -203,3 +203,12 @@ def test_tools_yaml_has_no_machine_specific_paths() -> None:
         cmd = tool.get("cmd") or ""
         assert "/Users/" not in cmd
         assert "/home/" not in cmd
+
+
+def test_tools_yaml_noexit_points_at_vendored_build() -> None:
+    path = Path(__file__).resolve().parents[1] / "baybench" / "tools.yaml"
+    registry = yaml.safe_load(path.read_text(encoding="utf-8"))
+    noexit = next(tool for tool in registry["tools"] if tool["name"] == "noexit")
+    cmd = noexit.get("cmd") or ""
+    assert "noexit/dist/baybench.js" in cmd
+    assert "T404_DIR" not in cmd

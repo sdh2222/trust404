@@ -43,8 +43,8 @@ bench validate                             # every fixture compiles (or is label
 bench run detector --no-docker             # ours, local venv
 bench run detector                         # ours, Docker (trust404/detector:latest)
 
-export T404_DIR=/path/to/T404              # Hojae's checkout, after `npm ci && npm run build`
-bench run noexit --no-docker               # his, via ${T404_DIR}/dist/baybench.js
+(cd noexit && npm ci --ignore-scripts && npx tsc -p tsconfig.json)   # build Hojae's engine once
+bench run noexit --no-docker               # his, via noexit/dist/baybench.js
 
 bench run ensemble                         # both merged (after the ensemble PR lands)
 ```
