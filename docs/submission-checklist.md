@@ -1,6 +1,6 @@
 # Submission checklist (owner)
 
-State as of 2026-09-20 21:15 KST. Everything below `## Owner actions` is done and merged; the three owner actions are the only things between the artifacts and a judge.
+State as of 2026-09-20 22:30 KST. Everything is done and merged; owner actions 1 and 2 were completed 2026-09-20 (package public, repo public; anonymous manifest inspect of both digests and the release tarball verified). Only step 3, the form itself, remains.
 
 ## What is shipped
 
@@ -16,9 +16,8 @@ State as of 2026-09-20 21:15 KST. Everything below `## Owner actions` is done an
 
 ## Owner actions (in this order)
 
-1. **Make the ensemble package public** — blocker. The package was created while the repo is private, so it is private and anonymous `docker pull` is denied (the detector package is already public). GitHub has no API for this; it is a UI click:
-   https://github.com/users/sdh2222/packages/container/trust404-ensemble/settings → Danger Zone → Change visibility → Public → type `trust404-ensemble`.
-2. **Decide repo visibility.** Release tarballs and the repo link are behind repo visibility. If the submission form asks for a repo URL or a tarball URL, flip the repo public at Settings → General → Danger Zone. If it accepts an image digest, item 1 alone is enough.
+1. ~~Make the ensemble package public~~ — done 2026-09-20 (`gh api /user/packages/container/trust404-ensemble` → `visibility: public`; anonymous `docker manifest inspect` of both digests OK).
+2. ~~Decide repo visibility~~ — done 2026-09-20: repo is public (`gh repo edit --visibility public`); release tarball URL answers 200 anonymously.
 3. **Submit.** Paste, in this form:
    - image: `ghcr.io/sdh2222/trust404-ensemble@sha256:0822a5a91630f53a1f4acf86ff97ecf5c83be5648361c4e1967ca6dde3a47440`
    - run: `docker run --rm --network none -v "$PWD/input":/input:ro ghcr.io/sdh2222/trust404-ensemble@sha256:0822a5a91630f53a1f4acf86ff97ecf5c83be5648361c4e1967ca6dde3a47440 > out.json` (arm64 hosts add `--platform linux/amd64`)
@@ -45,8 +44,9 @@ python -m detector.submission --validate out.json   # expect P1/P4 BENIGN, P2/P3
 
 ## Not done (known, not blocking)
 
-- **Merge rule, Benign vote** — issue #8. Measured: noexit says Benign on 78 files where Benign is not accepted (detector 21); a symmetric rule would add 16 wrong Benigns and no recall; a Benign-veto rule (both engines) is worth measuring after the deadline. Needs its own plan and two bench runs (~1 h).
-- **README organizers' +1/0/−1 table** (0.752 / 0.941 / 862 labelled) dates from the PR #1 review measurement on the pre-vendoring noexit build. Direction is unchanged; the exact numbers were not re-derived on Run 9 because the metric's handling of Uncertain-only labels was not written down. Recompute or drop before quoting it anywhere official; the BAYBENCH weighted numbers above are current.
+- ~~Merge rule, Benign vote~~ — issue #8 measured and closed 2026-09-20: on the vendored noexit build the Benign-veto rule is identical to the shipped rule on every file (noexit never says Uncertain where detector says Benign); symmetric Benign is worse (0.747 vs 0.754, +6 wrong); consensus 0.681. Table on the issue and in `README.md`.
+- ~~README organizers' +1/0/−1 table~~ — re-derived 2026-09-20 on `submission-rc2` (detector Run 9 + `bench run noexit --no-docker --repeat 2` on the vendored build): ensemble 0.754 / 0.944, detector 0.723 / 0.926, noexit 0.672 / 0.847. Metric definition is now written under the table.
 - **Detector Tier 2 backlog** (`docs/bench/misses.md`, rows marked open): 16 Benign-miss on Malicious-labelled files that the ensemble does not recover, and one reasons-quality row (`BAL_PRIV_MINT` listed on OZ v5 `seize` probes). Recall work, post-deadline.
-- **Hojae** (asked on #1): push T404 so `noexit/UPSTREAM` names a reachable commit; settle the public fork `ghwo336/T404` now that this repo is private.
-- Another session's working-tree files (`docs/research/**`, `reports/baseline_*`, `reports/noexit/*`, `tools/baseline_slither/tool.py`, `chartkit.py`, `public set/`) are uncommitted and untouched by this plan.
+- **Hojae** (asked on #1): push T404 so `noexit/UPSTREAM` names a reachable commit. Checked 2026-09-20 22:05: `ghwo336/T404` master is still `332aae9`; `cbcef71a` is not on it. The vendored copy here is complete and self-contained, so this is provenance, not a blocker; since this repo is now public the "settle the fork" question is moot.
+- noexit `determinism` shows `fail` in `reports/noexit/report.md` although verdicts are identical across repeats: its `reason` string embeds the absolute staging path (`.bench_work/noexit/runN/…`), which differs per run. noexit-side fix (upstream T404) or a bench-side path normalisation; cosmetic.
+- Another session's working-tree files (`docs/research/**`, `reports/baseline_*`, `tools/baseline_slither/tool.py`, `chartkit.py`, `public set/`) are uncommitted and untouched by this plan.

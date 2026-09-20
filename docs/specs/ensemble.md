@@ -4,7 +4,7 @@ Two-engine merge entry point for TRUST404 Track 1. Detector (Python / Slither) a
 
 ## Purpose
 
-One directory in, one judge array (or one BAYBENCH `results.json`) out, with both engines asked the same question. An "either-MALICIOUS" merge beats consensus because the engines never accuse a labelled-benign file: on the 673 compiling files, consensus scores 0.869, detector alone 0.923, and either-MALICIOUS 0.941. The BENIGN rule is asymmetric — only detector's BENIGN counts — because noexit said BENIGN on 33 malicious files detector flagged or could not compile; that rule scores 0.752 vs 0.745 (symmetric BENIGN) on all 862 labelled files (20 vs 26 wrong). The corpus has no non-compiling benign file, so the cost side of the asymmetric BENIGN rule is unmeasured.
+One directory in, one judge array (or one BAYBENCH `results.json`) out, with both engines asked the same question. An "either-MALICIOUS" merge beats consensus because the engines never accuse a labelled-benign file: on the 673 compiling files, consensus scores 0.872, detector alone 0.926, and either-MALICIOUS 0.944 (re-measured 2026-09-20 on `submission-rc2` with the vendored noexit build; the PR #1 review numbers were 0.869 / 0.923 / 0.941). The BENIGN rule is asymmetric — only detector's BENIGN counts — because noexit says BENIGN on malicious files detector flagged or could not compile (52 wrong Benigns alone); that rule scores 0.754 vs 0.747 (symmetric BENIGN) on all 862 labelled files (19 vs 25 wrong). A BENIGN-veto rule (both engines must say BENIGN) was measured and is identical to the shipped rule on every file of the corpus (issue #8, closed). The corpus has no non-compiling benign file, so the cost side of the asymmetric BENIGN rule is unmeasured.
 
 ## Engines and commands
 
