@@ -1,5 +1,7 @@
 # BAYBENCH
 
+Coding agents: see [AGENTS.md](AGENTS.md).
+
 ## TRUST404 Track 1 submission — judges start here
 
 Two independent offline engines (detector: Python on Slither IR, privilege → state → transfer-path reasoning; noexit: TypeScript AST rules, tolerant parser) behind one entry point. Per file **MALICIOUS if either engine says so, BENIGN only when detector says so, UNCERTAIN otherwise**. stdout is exactly one JSON array; logs go to stderr. Consensus was measured and rejected (0.869 vs 0.941 on the compiling BAYBENCH subset) because the engines never disagree by accusing a benign file; see [`docs/specs/ensemble.md`](docs/specs/ensemble.md).
@@ -11,6 +13,16 @@ Two independent offline engines (detector: Python on Slither IR, privilege → s
 | **ensemble** | **0.752** | **0.941** | **0** |
 
 Caveat: the corpus has no non-compiling benign file, so the cost side of "BENIGN only from detector" is unmeasured.
+
+### Prerequisites
+
+- **Docker-only path** (what judges use): Docker 24+ (any engine that runs `docker run --network none --read-only`). Add `--platform linux/amd64` when the host is arm64 (the image is amd64 only). The ensemble image is ~2 GB on disk (`docker images`; the detector base is ~1.4 GB of that). The compressed pull size of the published amd64 image is listed next to its digest under *Get the runtime* once `submission-rc2` is tagged. Nothing else is needed on the host.
+- **Local path** (no Docker): Python ≥ 3.11 (`requires-python = ">=3.11"` in `pyproject.toml`); `uv` optional. Node ≥ 18 (`engines.node` in `noexit/package.json`). npm. The 46 solc binaries listed in `detector/solc_versions.txt`, installed by `scripts/setup_local.sh` (which also builds noexit). Then `./run.sh <dir>`.
+- **Validation only**: `python -m detector.submission --validate out.json` (offline, no solc needed) and optional `check-jsonschema`.
+- **Network: when**
+  - Downloads: `docker pull` / `docker load`; `scripts/setup_local.sh` (pip + solc binaries); `npm ci`.
+  - Graded run: `./run.sh` / `docker run --network none` — none.
+- **Sizes / times**: solc artifacts are 1.5G (`du -sh ~/.solc-select/artifacts`). First `scripts/setup_local.sh` run is ~10–15 min (46 solc downloads + pip + npm/tsc); re-runs skip installed compilers and existing `noexit/node_modules`.
 
 ### Get the runtime
 

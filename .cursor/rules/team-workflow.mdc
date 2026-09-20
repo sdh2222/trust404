@@ -5,7 +5,7 @@ alwaysApply: true
 
 # Team workflow (trust404 ⇄ T404)
 
-Human contract: `CONTRIBUTING.md`. Subagent rules: `docs/agents/grok-subagent-guardrails.md`.
+Human contract: `CONTRIBUTING.md`. Repo brief: `AGENTS.md`. Subagent rules: `docs/agents/grok-subagent-guardrails.md`.
 
 ## Git
 

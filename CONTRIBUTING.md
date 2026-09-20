@@ -82,3 +82,4 @@ Anything under `run.sh`, `tools/ensemble.py`, `detector/Dockerfile`, root `Docke
 Agents follow `.cursor/rules/team-workflow.mdc` in this repo (branch/PR rules above, no `main`
 pushes, bench numbers before claims) and, for implementation subagents,
 `docs/agents/grok-subagent-guardrails.md`.
+Repo brief for any coding agent: `AGENTS.md`.
