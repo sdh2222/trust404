@@ -66,6 +66,12 @@ def test_readme_has_prerequisites_section() -> None:
     )
 
 
+def test_readme_front_page_sections() -> None:
+    text = README.read_text(encoding="utf-8")
+    assert text.startswith("# trust404\n"), "README title must be # trust404"
+    assert re.search(r"(?m)^## How it decides$", text), "README is missing ## How it decides"
+
+
 def test_readme_links_agents_md() -> None:
     text = README.read_text(encoding="utf-8")
     assert "AGENTS.md" in text, "README must mention AGENTS.md"
