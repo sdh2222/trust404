@@ -724,11 +724,16 @@ def _build_slither(
         oz_s = str(oz.resolve())
         if oz_s not in seen:
             allow_parts.append(oz_s)
+    # Force the plain-solc framework: a foundry.toml / hardhat.config beside the
+    # target would otherwise make crytic-compile shell out to `forge` / `npx`,
+    # which neither the judge image nor CI has. The ladder already resolves
+    # remappings.txt / foundry.toml remappings itself.
     return Slither(
         str(target),
         solc=str(solc_bin),
         solc_remaps=remaps,
         solc_args=f"--allow-paths {','.join(allow_parts)}",
+        compile_force_framework="solc",
     )
 
 
