@@ -9,7 +9,56 @@ import yaml
 from tests.detector.conftest import REPO_ROOT
 
 WORKFLOW = REPO_ROOT / ".github" / "workflows" / "detector-image.yml"
+CI_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "ci.yml"
 USES_RE = re.compile(r"^(actions|docker)/[a-z-]+@v\d+$")
+# Env names read by run.sh, tools/ensemble.py, and detector/docker_entry.py.
+# Job/step `env:` keys with these names shadow the local-override contract.
+RUN_SH_CONTRACT_ENV = frozenset(
+    {
+        "DETECTOR_IMAGE",
+        "ENSEMBLE_IMAGE",
+        "DETECTOR_NO_DOCKER",
+        "ENSEMBLE_ENGINES",
+        "DETECTOR_PYTHON",
+        "ENSEMBLE_NODE",
+        "DETECTOR_MODE",
+        "ENSEMBLE_MODE",
+        "ENSEMBLE_BUDGET_S",
+        "ENSEMBLE_DETECTOR_BUDGET_S",
+        "ENSEMBLE_PYTHON",
+    }
+)
+
+
+def _workflow_env_keys(data: dict, *, include_steps: bool) -> list[tuple[str, str]]:
+    found: list[tuple[str, str]] = []
+    top = data.get("env")
+    if isinstance(top, dict):
+        for key in top:
+            found.append(("workflow.env", str(key)))
+    jobs = data.get("jobs") or {}
+    if not isinstance(jobs, dict):
+        return found
+    for job_name, job in jobs.items():
+        if not isinstance(job, dict):
+            continue
+        job_env = job.get("env")
+        if isinstance(job_env, dict):
+            for key in job_env:
+                found.append((f"jobs.{job_name}.env", str(key)))
+        if not include_steps:
+            continue
+        steps = job.get("steps") or []
+        if not isinstance(steps, list):
+            continue
+        for index, step in enumerate(steps):
+            if not isinstance(step, dict):
+                continue
+            step_env = step.get("env")
+            if isinstance(step_env, dict):
+                for key in step_env:
+                    found.append((f"jobs.{job_name}.steps[{index}].env", str(key)))
+    return found
 
 
 def _walk_uses(node: object) -> list[str]:
@@ -102,9 +151,27 @@ def test_detector_image_workflow_publishes_ensemble() -> None:
         assert ":hold" not in script
 
 
+def test_publish_workflow_env_does_not_shadow_run_sh_contract() -> None:
+    data = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+    for location, key in _workflow_env_keys(data, include_steps=True):
+        assert key not in RUN_SH_CONTRACT_ENV, (
+            f"{location}: {key} shadows run.sh / ensemble.py / docker_entry.py"
+        )
+
+
+def test_ci_workflow_env_does_not_shadow_run_sh_contract() -> None:
+    # Step-level env on the judge-smoke step (DETECTOR_PYTHON,
+    # JUDGE_SMOKE_REQUIRE_ENGINES) is an intended input; only top-level and
+    # job-level env mappings are checked here.
+    data = yaml.safe_load(CI_WORKFLOW.read_text(encoding="utf-8"))
+    for location, key in _workflow_env_keys(data, include_steps=False):
+        assert key not in RUN_SH_CONTRACT_ENV, (
+            f"{location}: {key} shadows run.sh / ensemble.py / docker_entry.py"
+        )
+
+
 def test_ci_workflow_shape() -> None:
-    ci_path = REPO_ROOT / ".github" / "workflows" / "ci.yml"
-    data = yaml.safe_load(ci_path.read_text(encoding="utf-8"))
+    data = yaml.safe_load(CI_WORKFLOW.read_text(encoding="utf-8"))
     assert data["permissions"] == {"contents": "read"}
     jobs = data["jobs"]
     assert set(jobs) == {"tests", "ensemble-image"}

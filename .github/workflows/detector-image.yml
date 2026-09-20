@@ -14,8 +14,8 @@ jobs:
   image:
     runs-on: ubuntu-latest
     env:
-      IMAGE: ghcr.io/${{ github.repository_owner }}/trust404-detector
-      ENSEMBLE_IMAGE: ghcr.io/${{ github.repository_owner }}/trust404-ensemble
+      DETECTOR_REPO: ghcr.io/${{ github.repository_owner }}/trust404-detector
+      ENSEMBLE_REPO: ghcr.io/${{ github.repository_owner }}/trust404-ensemble
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -39,15 +39,15 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: |
-            ${{ env.IMAGE }}:${{ github.ref_name }}
-            ${{ env.IMAGE }}:latest
+            ${{ env.DETECTOR_REPO }}:${{ github.ref_name }}
+            ${{ env.DETECTOR_REPO }}:latest
 
       - name: Retag for run.sh
         run: |
           DIGEST="${{ steps.push.outputs.digest }}"
           echo "DIGEST=${DIGEST}" >> "$GITHUB_ENV"
-          docker pull "${IMAGE}@${DIGEST}"
-          docker tag "${IMAGE}@${DIGEST}" trust404/detector:latest
+          docker pull "${DETECTOR_REPO}@${DIGEST}"
+          docker tag "${DETECTOR_REPO}@${DIGEST}" trust404/detector:latest
 
       - name: Hardened smoke matrix
         run: |
@@ -103,7 +103,7 @@ jobs:
           file: Dockerfile
           platforms: linux/amd64
           push: true
-          build-args: BASE=${{ env.IMAGE }}@${{ steps.push.outputs.digest }}
+          build-args: BASE=${{ env.DETECTOR_REPO }}@${{ steps.push.outputs.digest }}
           tags: |
             ghcr.io/${{ github.repository_owner }}/trust404-ensemble:${{ github.ref_name }}
             ghcr.io/${{ github.repository_owner }}/trust404-ensemble:latest
@@ -112,8 +112,8 @@ jobs:
         run: |
           ENSEMBLE_DIGEST="${{ steps.push_ensemble.outputs.digest }}"
           echo "ENSEMBLE_DIGEST=${ENSEMBLE_DIGEST}" >> "$GITHUB_ENV"
-          docker pull "${ENSEMBLE_IMAGE}@${ENSEMBLE_DIGEST}"
-          docker tag "${ENSEMBLE_IMAGE}@${ENSEMBLE_DIGEST}" trust404/ensemble:latest
+          docker pull "${ENSEMBLE_REPO}@${ENSEMBLE_DIGEST}"
+          docker tag "${ENSEMBLE_REPO}@${ENSEMBLE_DIGEST}" trust404/ensemble:latest
 
       - name: Ensemble hardened smoke
         run: |
@@ -200,10 +200,10 @@ jobs:
       - name: Job summary
         run: |
           {
-            echo "- image: \`${IMAGE}:latest\`"
+            echo "- image: \`${DETECTOR_REPO}:latest\`"
             echo "- digest: \`${DIGEST}\`"
             echo "- tarball sha256: \`${TARBALL_SHA256}\`"
-            echo "- ensemble image: \`${ENSEMBLE_IMAGE}:latest\`"
+            echo "- ensemble image: \`${ENSEMBLE_REPO}:latest\`"
             echo "- ensemble digest: \`${ENSEMBLE_DIGEST}\`"
             echo "- ensemble tarball sha256: \`${ENSEMBLE_TARBALL_SHA256}\`"
             echo
