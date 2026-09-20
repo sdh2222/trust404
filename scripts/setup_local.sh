@@ -30,4 +30,20 @@ for v in $(cat detector/solc_versions.txt); do
 done
 
 echo "INSTALLED ${installed}"
+
+if command -v node >/dev/null 2>&1 && command -v npm >/dev/null 2>&1; then
+  cd noexit
+  if [[ ! -d node_modules ]]; then
+    npm ci --ignore-scripts
+    echo "noexit: ran npm ci --ignore-scripts"
+  else
+    echo "noexit: node_modules present; skipped npm ci"
+  fi
+  npx tsc -p tsconfig.json
+  echo "noexit: ran npx tsc -p tsconfig.json"
+  cd - >/dev/null
+else
+  echo "node/npm not found: run.sh will run DEGRADED (detector only); install Node 18+ and re-run this script" >&2
+fi
+
 echo "hint: ./run.sh <dir>  or  DETECTOR_NO_DOCKER=1 ./run.sh <dir>"
